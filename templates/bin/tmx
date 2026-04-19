@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -eu
+
+session="${1:-main}"
+
+if [ "$session" = "-l" ] || [ "$session" = "--list" ]; then
+  exec tmux list-sessions
+fi
+
+if tmux has-session -t "$session" 2>/dev/null; then
+  exec tmux attach-session -t "$session"
+else
+  exec tmux new-session -s "$session"
+fi

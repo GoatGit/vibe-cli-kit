@@ -1,0 +1,53 @@
+export PATH="$HOME/.local/bin:$PATH"
+
+if [ -x /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -x /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init zsh)"
+fi
+
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
+fi
+
+if [ -f "$(brew --prefix fzf 2>/dev/null)/shell/key-bindings.zsh" ]; then
+  . "$(brew --prefix fzf)/shell/key-bindings.zsh"
+fi
+
+if [ -f "$(brew --prefix fzf 2>/dev/null)/shell/completion.zsh" ]; then
+  . "$(brew --prefix fzf)/shell/completion.zsh"
+fi
+
+alias ll='lsd -lah'
+alias cat='bat'
+alias vim='nvim'
+alias hk='terminal-cheatsheet'
+alias hotkeys='terminal-cheatsheet'
+
+y() {
+  local tmp
+  tmp="$(mktemp -t yazi-cwd.XXXXXX)"
+  yazi "$@" --cwd-file="$tmp"
+  if [ -s "$tmp" ]; then
+    local cwd
+    cwd="$(cat "$tmp")"
+    [ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && cd "$cwd"
+  fi
+  rm -f "$tmp"
+}
+
+tma() {
+  local session="${1:-main}"
+  tmux attach-session -t "$session" 2>/dev/null || tmux new-session -s "$session"
+}
+
+tmn() {
+  local session="${1:-${PWD##*/}}"
+  tmux new-session -A -s "$session"
+}
+
+alias tml='tmux list-sessions'

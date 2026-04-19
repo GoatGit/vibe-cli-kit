@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -eu
+
+DOC_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cheatsheets/terminal-cheatsheet.md"
+
+if [ ! -f "$DOC_FILE" ]; then
+  printf 'Document not found: %s\n' "$DOC_FILE" >&2
+  exit 1
+fi
+
+exec less "$DOC_FILE"
