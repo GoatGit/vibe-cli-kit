@@ -2,11 +2,102 @@
 
 set -eu
 
-DOC_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cheatsheets/terminal-cheatsheet.md"
+CHEATSHEET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cheatsheets"
+LANG_CODE=
+
+usage() {
+  cat <<'EOF'
+Usage:
+  terminal-cheatsheet [--lang en|zh-CN|ja]
+EOF
+}
+
+normalize_lang() {
+  case "$1" in
+    zh|zh_*|zh-*)
+      printf 'zh-CN\n'
+      ;;
+    ja|ja_*|ja-*)
+      printf 'ja\n'
+      ;;
+    en|en_*|en-*)
+      printf 'en\n'
+      ;;
+    *)
+      printf 'en\n'
+      ;;
+  esac
+}
+
+detect_lang() {
+  if [ -n "${VIBE_CLI_KIT_LANG:-}" ]; then
+    normalize_lang "$VIBE_CLI_KIT_LANG"
+    return 0
+  fi
+
+  if [ -n "${LANG_CODE}" ]; then
+    normalize_lang "$LANG_CODE"
+    return 0
+  fi
+
+  if [ -n "${LANG:-}" ]; then
+    normalize_lang "$LANG"
+    return 0
+  fi
+
+  if [ -n "${LC_MESSAGES:-}" ]; then
+    normalize_lang "$LC_MESSAGES"
+    return 0
+  fi
+
+  if [ -n "${LC_ALL:-}" ]; then
+    normalize_lang "$LC_ALL"
+    return 0
+  fi
+
+  printf 'en\n'
+}
+
+parse_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --lang)
+        shift
+        [ "$#" -gt 0 ] || {
+          usage >&2
+          exit 1
+        }
+        LANG_CODE="$1"
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        usage >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+parse_args "$@"
+
+DOC_LANG="$(detect_lang)"
+DOC_FILE="$CHEATSHEET_DIR/terminal-cheatsheet.$DOC_LANG.md"
+
+if [ ! -f "$DOC_FILE" ]; then
+  DOC_FILE="$CHEATSHEET_DIR/terminal-cheatsheet.en.md"
+fi
 
 if [ ! -f "$DOC_FILE" ]; then
   printf 'Document not found: %s\n' "$DOC_FILE" >&2
   exit 1
+fi
+
+if command -v bat >/dev/null 2>&1; then
+  exec bat --paging=always --language=markdown --style=plain,header "$DOC_FILE"
 fi
 
 exec less "$DOC_FILE"

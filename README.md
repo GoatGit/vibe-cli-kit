@@ -1,58 +1,50 @@
 # vibe-cli-kit
 
-一键安装并配置一套高频效率命令行工具：
+Cross-platform terminal environment bootstrap for macOS, Linux, and WSL.
 
-- `ghostty`
-- `yazi`
-- `lsd`
-- `bat`
-- `tmux`
-- `fzf`
-- `fd`
-- `atuin`
-- `zoxide`
-- `nvim`
-- `ripgrep`
-- `lazygit`
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL-1f6feb)](#notes)
+[![Package Managers](https://img.shields.io/badge/pkg-brew%20%7C%20apt-2da44e)](#notes)
+[![Languages](https://img.shields.io/badge/i18n-English%20%7C%20简体中文%20%7C%20日本語-f59e0b)](#this-repository-supports-three-languages)
 
-同时安装：
+This repository supports three languages:
 
-- `ghostty` / `yazi` / `tmux` 默认配置
-- `tmx` 智能 tmux 入口
-- `hk` / `hotkeys` 快捷帮助命令
-- `zsh` 集成：`atuin`、`zoxide`、`fzf`、`y`、`tmux` 辅助函数，以及 `vim -> nvim`
+- English: [README.en.md](README.en.md)
+- 简体中文: [README.zh-CN.md](README.zh-CN.md)
+- 日本語: [README.ja.md](README.ja.md)
 
-## 用法
+## Includes
+
+- CLI tools: `yazi` `tmux` `fzf` `fd` `ripgrep` `lazygit` `glow` and more
+- Terminal defaults: `ghostty`, `tmux`, `yazi`
+- Shell helpers: `hk` `tmx` `tmn` `tma` `tml` `y`
+- Localized cheatsheets: English, Simplified Chinese, Japanese
+
+## Quick Install
 
 ```sh
 sh install.sh
-```
-
-安装完成后执行：
-
-```sh
 source ~/.zshrc
 ```
 
-## 结果
-
-- 配置文件写入 `~/.config` 与 `~/.tmux.conf`
-- 帮助文档写入 `~/.config/cheatsheets/terminal-cheatsheet.md`
-- 命令脚本写入 `~/.local/bin`
-- `~/.zshrc` 追加一段受管配置块
-
-## 常用命令
+## Quick Verify
 
 ```sh
 hk
-tmx
 tmn
-tma
-tml
 y
-z foo
-zi
-nvim
-rg foo
-lazygit
+nvim .
 ```
+
+## Docs
+
+- English guide: [README.en.md](README.en.md)
+- 中文指南: [README.zh-CN.md](README.zh-CN.md)
+- 日本語ガイド: [README.ja.md](README.ja.md)
+
+## Notes
+
+- Supported platforms: macOS, Linux, WSL
+- Supported package managers: Homebrew, apt
+- `ghostty` is only auto-installed on macOS
+- Cheatsheets are installed in English, Simplified Chinese, and Japanese
+- `hk` / `terminal-cheatsheet` can auto-select language or accept `--lang`

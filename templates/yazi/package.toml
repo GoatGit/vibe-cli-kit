@@ -1,0 +1,3 @@
+[[plugin.deps]]
+use = "yazi-rs/plugins:piper"
+rev = "HEAD"

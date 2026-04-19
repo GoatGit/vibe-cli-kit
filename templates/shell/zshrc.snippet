@@ -4,6 +4,8 @@ if [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 elif [ -x /usr/local/bin/brew ]; then
   eval "$(/usr/local/bin/brew shellenv)"
+elif command -v brew >/dev/null 2>&1; then
+  eval "$(brew shellenv)"
 fi
 
 if command -v atuin >/dev/null 2>&1; then
@@ -14,19 +16,37 @@ if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
 fi
 
-if [ -f "$(brew --prefix fzf 2>/dev/null)/shell/key-bindings.zsh" ]; then
+if command -v brew >/dev/null 2>&1 && [ -f "$(brew --prefix fzf 2>/dev/null)/shell/key-bindings.zsh" ]; then
   . "$(brew --prefix fzf)/shell/key-bindings.zsh"
+elif [ -f /usr/share/fzf/key-bindings.zsh ]; then
+  . /usr/share/fzf/key-bindings.zsh
+elif [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]; then
+  . /usr/share/doc/fzf/examples/key-bindings.zsh
 fi
 
-if [ -f "$(brew --prefix fzf 2>/dev/null)/shell/completion.zsh" ]; then
+if command -v brew >/dev/null 2>&1 && [ -f "$(brew --prefix fzf 2>/dev/null)/shell/completion.zsh" ]; then
   . "$(brew --prefix fzf)/shell/completion.zsh"
+elif [ -f /usr/share/fzf/completion.zsh ]; then
+  . /usr/share/fzf/completion.zsh
+elif [ -f /usr/share/doc/fzf/examples/completion.zsh ]; then
+  . /usr/share/doc/fzf/examples/completion.zsh
 fi
 
 alias ll='lsd -lah'
-alias cat='bat'
 alias vim='nvim'
 alias hk='terminal-cheatsheet'
 alias hotkeys='terminal-cheatsheet'
+
+if command -v bat >/dev/null 2>&1; then
+  alias cat='bat'
+elif command -v batcat >/dev/null 2>&1; then
+  alias bat='batcat'
+  alias cat='batcat'
+fi
+
+if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
+  alias fd='fdfind'
+fi
 
 y() {
   local tmp
