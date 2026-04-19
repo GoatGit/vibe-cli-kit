@@ -174,13 +174,29 @@ detect_platform() {
 }
 
 detect_package_manager() {
-  if [ -n "$BREW_BIN" ]; then
-    PACKAGE_MANAGER=brew
-  elif command -v apt-get >/dev/null 2>&1; then
-    PACKAGE_MANAGER=apt
-  else
-    die "$(msg unsupported_package_manager)"
-  fi
+  case "$PLATFORM" in
+    macos)
+      if [ -n "$BREW_BIN" ]; then
+        PACKAGE_MANAGER=brew
+      elif command -v apt-get >/dev/null 2>&1; then
+        PACKAGE_MANAGER=apt
+      else
+        die "$(msg unsupported_package_manager)"
+      fi
+      ;;
+    linux|wsl)
+      if command -v apt-get >/dev/null 2>&1; then
+        PACKAGE_MANAGER=apt
+      elif [ -n "$BREW_BIN" ]; then
+        PACKAGE_MANAGER=brew
+      else
+        die "$(msg unsupported_package_manager)"
+      fi
+      ;;
+    *)
+      die "$(msg unsupported_package_manager)"
+      ;;
+  esac
 }
 
 ensure_dir() {
@@ -237,11 +253,11 @@ apt_install_package() {
     log "skip apt package: $pkg"
     return 0
   fi
+  apt_update_once
   if ! apt_package_exists "$pkg"; then
     warn "skip apt package: $pkg (not available in current repo)"
     return 0
   fi
-  apt_update_once
   log "install apt package: $pkg"
   run_root_cmd apt-get install -y "$pkg"
 }
@@ -259,8 +275,12 @@ install_python_cli() {
   fi
 
   if command -v python3 >/dev/null 2>&1; then
-    log "install python package with pip --user: $package"
-    run_cmd python3 -m pip install --user "$package"
+    if python3 -m pip --version >/dev/null 2>&1; then
+      log "install python package with pip --user: $package"
+      run_cmd python3 -m pip install --user "$package"
+    else
+      warn "skip python package: $package (python3 is available but pip is missing)"
+    fi
     return 0
   fi
 

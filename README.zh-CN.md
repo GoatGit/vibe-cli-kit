@@ -26,8 +26,9 @@
 说明：
 
 - macOS 推荐 Homebrew
-- Ubuntu / Debian / WSL 推荐 apt
-- 其他 Linux 发行版如果没有 `brew` 或 `apt`，当前脚本会直接报不支持
+- Ubuntu / Debian / WSL 默认优先 apt
+- 在 Linux / WSL 上，如果 `apt` 和 `brew` 同时存在，会优先使用 `apt`
+- 其他 Linux 发行版如果没有 `apt` 或 `brew`，当前脚本会直接报不支持
 
 ## 安装的工具
 
@@ -149,6 +150,7 @@ glow README.zh-CN.md
 会自动根据系统语言选择对应 cheatsheet，也可以手动指定：
 
 ```sh
+VIBE_CLI_KIT_LANG=ja hk
 terminal-cheatsheet --lang en
 terminal-cheatsheet --lang zh-CN
 terminal-cheatsheet --lang ja

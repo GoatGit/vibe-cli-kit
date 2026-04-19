@@ -24,8 +24,9 @@ Supported package managers:
 Notes:
 
 - macOS is expected to use Homebrew
-- Ubuntu / Debian / WSL are expected to use apt
-- Other Linux distros currently need either `brew` or `apt`
+- Ubuntu / Debian / WSL prefer apt by default
+- On Linux / WSL, apt is preferred over Homebrew when both are present
+- Other Linux distros currently need either `apt` or `brew`
 
 ## Installed Tools
 
@@ -146,13 +147,14 @@ glow README.en.md
 
 Both open the localized cheatsheet. Language is selected from:
 
-- `LC_ALL`
-- `LC_MESSAGES`
 - `LANG`
+- `LC_MESSAGES`
+- `LC_ALL`
 
 You can also override it manually:
 
 ```sh
+VIBE_CLI_KIT_LANG=ja hk
 terminal-cheatsheet --lang en
 terminal-cheatsheet --lang zh-CN
 terminal-cheatsheet --lang ja

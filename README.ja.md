@@ -24,8 +24,9 @@ CLI ツール、端末設定、Yazi プレビュー設定、tmux 設定、ロー
 補足：
 
 - macOS は Homebrew 前提
-- Ubuntu / Debian / WSL は apt 前提
-- それ以外の Linux は `brew` か `apt` が必要
+- Ubuntu / Debian / WSL は apt を優先
+- Linux / WSL で `apt` と `brew` の両方がある場合は `apt` を優先
+- それ以外の Linux は `apt` か `brew` が必要
 
 ## インストールされるツール
 
@@ -147,6 +148,7 @@ glow README.ja.md
 システム言語から自動選択し、手動指定も可能です：
 
 ```sh
+VIBE_CLI_KIT_LANG=ja hk
 terminal-cheatsheet --lang en
 terminal-cheatsheet --lang zh-CN
 terminal-cheatsheet --lang ja
