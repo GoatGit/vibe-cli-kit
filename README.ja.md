@@ -26,9 +26,9 @@ nvim .
 
 ## 言語
 
-- English: `README.en.md`
-- 简体中文: `README.zh-CN.md`
-- 日本語: `README.ja.md`
+- English: [README.en.md](README.en.md)
+- 简体中文: [README.zh-CN.md](README.zh-CN.md)
+- 日本語: [README.ja.md](README.ja.md)
 
 ## 対応環境
 

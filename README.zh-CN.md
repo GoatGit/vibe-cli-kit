@@ -26,9 +26,9 @@ nvim .
 
 ## 语言
 
-- 英文：`README.en.md`
-- 简体中文：`README.zh-CN.md`
-- 日文：`README.ja.md`
+- 英文：[README.en.md](README.en.md)
+- 简体中文：[README.zh-CN.md](README.zh-CN.md)
+- 日文：[README.ja.md](README.ja.md)
 
 ## 支持范围
 

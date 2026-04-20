@@ -26,9 +26,9 @@ nvim .
 
 ## Languages
 
-- English: `README.en.md`
-- Simplified Chinese: `README.zh-CN.md`
-- Japanese: `README.ja.md`
+- English: [README.en.md](README.en.md)
+- Simplified Chinese: [README.zh-CN.md](README.zh-CN.md)
+- Japanese: [README.ja.md](README.ja.md)
 
 ## Supported Platforms
 
