@@ -64,6 +64,8 @@ msg() {
         install_yazi_plugins) printf '安装 Yazi 插件' ;;
         skip_yazi_plugins_config) printf '跳过 Yazi 插件安装：--only-config' ;;
         skip_yazi_plugins_missing) printf '跳过 Yazi 插件安装：未找到 ya' ;;
+        yazi_plugins_failed) printf 'Yazi 插件安装未完成' ;;
+        yazi_plugins_manual) printf '检测到本地插件已修改。若要重新部署，请手动删除后重试：' ;;
         need_root) printf '此操作需要 root 权限' ;;
         unsupported_platform) printf '不支持的平台' ;;
         unsupported_package_manager) printf '不支持的包管理器，当前仅支持 Homebrew 和 apt' ;;
@@ -91,6 +93,8 @@ msg() {
         install_yazi_plugins) printf 'Yazi プラグインをインストール' ;;
         skip_yazi_plugins_config) printf 'Yazi プラグインのインストールをスキップ：--only-config' ;;
         skip_yazi_plugins_missing) printf 'Yazi プラグインのインストールをスキップ：ya が見つからない' ;;
+        yazi_plugins_failed) printf 'Yazi プラグインのインストールは完了しませんでした' ;;
+        yazi_plugins_manual) printf 'ローカルで変更されたプラグインが見つかりました。再配置するには手動で削除して再実行してください:' ;;
         need_root) printf 'この操作には root 権限が必要です' ;;
         unsupported_platform) printf '未対応のプラットフォーム' ;;
         unsupported_package_manager) printf '未対応のパッケージマネージャーです。Homebrew と apt のみ対応しています' ;;
@@ -118,6 +122,8 @@ msg() {
         install_yazi_plugins) printf 'install yazi plugins' ;;
         skip_yazi_plugins_config) printf 'skip yazi plugin installation: --only-config' ;;
         skip_yazi_plugins_missing) printf "skip yazi plugin installation: 'ya' not found" ;;
+        yazi_plugins_failed) printf 'yazi plugin installation did not complete' ;;
+        yazi_plugins_manual) printf 'detected a locally modified plugin. Delete it manually and re-run if you want to redeploy:' ;;
         need_root) printf 'need root privileges' ;;
         unsupported_platform) printf 'unsupported platform' ;;
         unsupported_package_manager) printf 'unsupported package manager. Supported: Homebrew, apt' ;;
@@ -413,6 +419,8 @@ install_compat_shims() {
 }
 
 install_yazi_plugins() {
+  plugin_dir="$CONFIG_DIR/yazi/plugins/piper.yazi"
+
   if [ "$ONLY_CONFIG" -eq 1 ]; then
     log "$(msg skip_yazi_plugins_config)"
     return 0
@@ -429,10 +437,15 @@ install_yazi_plugins() {
   fi
 
   log "$(msg install_yazi_plugins)"
-  (
+  if (
     cd "$CONFIG_DIR/yazi"
     ya pkg install
-  )
+  ); then
+    return 0
+  fi
+
+  warn "$(msg yazi_plugins_failed)"
+  warn "$(msg yazi_plugins_manual) $plugin_dir"
 }
 
 append_managed_block() {

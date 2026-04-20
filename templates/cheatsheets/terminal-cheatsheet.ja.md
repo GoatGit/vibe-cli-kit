@@ -83,6 +83,17 @@ nvim .      # 現在のディレクトリを開く
 - `Ctrl+t`：ファイルパスをあいまい挿入
 - `Alt+c`：ディレクトリをあいまい移動
 
+高頻度の `rg / ripgrep`：
+
+- `rg foo`：全文検索
+- `rg -i foo`：大文字小文字を無視
+- `rg -n foo`：行番号を表示
+- `rg -C 2 foo`：前後の文脈を表示
+- `rg foo templates`：特定ディレクトリだけ検索
+- `rg foo -g "*.sh"`：特定の拡張子だけ検索
+- `rg --files`：ファイル一覧
+- `rg --files | fzf`：ファイルをあいまい選択
+
 よく使うコマンド：
 
 - `rg foo`：全文検索
@@ -107,8 +118,6 @@ fd . | fzf
 - `nvim`：Neovim を開く
 - `nvim .`：現在のディレクトリを開く
 - `nvim file`：ファイル編集
-- `rg foo`：ripgrep で検索
-- `rg --files`：ファイル一覧
 - `lazygit`：Git TUI を開く
 - `glow file.md`：ターミナルで Markdown を読む
 

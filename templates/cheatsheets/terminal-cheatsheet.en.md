@@ -83,6 +83,17 @@ Hotkeys:
 - `Ctrl+t`: fuzzy file insert
 - `Alt+c`: fuzzy directory jump
 
+High-frequency `rg / ripgrep`:
+
+- `rg foo`: search text globally
+- `rg -i foo`: ignore case
+- `rg -n foo`: show line numbers
+- `rg -C 2 foo`: show context
+- `rg foo templates`: search only in a directory
+- `rg foo -g "*.sh"`: search only matching file types
+- `rg --files`: list files
+- `rg --files | fzf`: fuzzy-pick a file
+
 Common commands:
 
 - `rg foo`: global text search
@@ -107,8 +118,6 @@ fd . | fzf
 - `nvim`: open Neovim
 - `nvim .`: open current directory
 - `nvim file`: edit file
-- `rg foo`: search with ripgrep
-- `rg --files`: list files
 - `lazygit`: open Git TUI
 - `glow file.md`: read a Markdown file in the terminal
 

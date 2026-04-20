@@ -83,6 +83,17 @@ nvim .      # 打开当前目录
 - `Ctrl+t`：模糊插入文件路径
 - `Alt+c`：模糊切目录
 
+`rg / ripgrep` 高频：
+
+- `rg foo`：全局搜索文本
+- `rg -i foo`：忽略大小写搜索
+- `rg -n foo`：显示行号
+- `rg -C 2 foo`：显示上下文
+- `rg foo templates`：只搜指定目录
+- `rg foo -g "*.sh"`：只搜指定类型文件
+- `rg --files`：列出文件
+- `rg --files | fzf`：模糊选文件
+
 常用命令：
 
 - `rg foo`：全局文本搜索
@@ -107,8 +118,6 @@ fd . | fzf
 - `nvim`：打开 Neovim
 - `nvim .`：打开当前目录
 - `nvim file`：编辑文件
-- `rg foo`：用 ripgrep 搜内容
-- `rg --files`：列文件
 - `lazygit`：打开 Git TUI
 - `glow file.md`：单独阅读 Markdown 文档
 
