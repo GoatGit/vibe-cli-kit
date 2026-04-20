@@ -2,7 +2,7 @@
 
 One-command terminal setup kit for macOS, Linux, and WSL.
 
-It installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow`, plus shell helpers and a local cheatsheet.
+It installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
 
 ## At a Glance
 
@@ -10,6 +10,7 @@ It installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `l
 - Set up `ghostty`, `tmux`, and `yazi` with sane defaults
 - Add helper commands like `hk`, `tmx`, `tmn`, `tma`, `tml`, `y`
 - Support `brew` and `apt`
+- Adapt by system and skip unavailable tools cleanly
 - Show installed / skipped / unavailable tools at the end
 
 ## Quick Start
@@ -64,6 +65,8 @@ Notes:
 - `lazygit`
 - `rich-cli`
 - `glow`
+- `fastfetch`
+- `btop`
 
 Notes:
 

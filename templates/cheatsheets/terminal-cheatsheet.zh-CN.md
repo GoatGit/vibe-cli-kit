@@ -1,6 +1,6 @@
 # Terminal Cheatsheet
 
-已集成：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow。
+已集成：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
 
 紧凑版，按安装后的默认配置整理，优先覆盖最高频操作。
 

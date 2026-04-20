@@ -1,6 +1,6 @@
 # Terminal Cheatsheet
 
-Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, ripgrep, lazygit, rich-cli, glow.
+Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, ripgrep, lazygit, rich-cli, glow, fastfetch, btop.
 
 Compact reference based on the default project configuration, optimized for high-frequency tasks.
 

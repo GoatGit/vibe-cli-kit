@@ -2,7 +2,7 @@
 
 macOS、Linux、WSL 向けのワンコマンド端末セットアップキット。
 
-`ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` と、shell 補助コマンド、ローカルチートシートをまとめて導入します。
+`ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop` と、shell 補助コマンド、ローカルチートシートをまとめて導入します。
 
 ## ひと目でわかること
 
@@ -10,6 +10,7 @@ macOS、Linux、WSL 向けのワンコマンド端末セットアップキット
 - `ghostty` `tmux` `yazi` をすぐ使える状態にする
 - `hk` `tmx` `tmn` `tma` `tml` `y` を追加
 - `brew` と `apt` に対応
+- 環境に合わせて適応し、利用できないツールは安全にスキップ
 - 実行後に installed / skipped / unavailable を要約表示
 
 ## クイックスタート
@@ -64,6 +65,8 @@ nvim .
 - `lazygit`
 - `rich-cli`
 - `glow`
+- `fastfetch`
+- `btop`
 
 補足：
 

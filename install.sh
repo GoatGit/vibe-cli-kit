@@ -26,7 +26,7 @@ if [ -z "${BREW_BIN}" ]; then
   fi
 fi
 
-TOOLS="ghostty yazi lsd bat tmux fzf fd atuin zoxide nvim ripgrep lazygit rich-cli glow"
+TOOLS="ghostty yazi lsd bat tmux fzf fd atuin zoxide nvim ripgrep lazygit rich-cli glow fastfetch btop"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 LOCAL_BIN_DIR="$HOME/.local/bin"
 CHEATSHEET_DIR="$CONFIG_DIR/cheatsheets"
@@ -247,15 +247,32 @@ apt_package_exists() {
   apt-cache show "$pkg" >/dev/null 2>&1
 }
 
+brew_formula_exists() {
+  formula="$1"
+  "$BREW_BIN" info --formula "$formula" >/dev/null 2>&1
+}
+
+brew_cask_exists() {
+  cask="$1"
+  "$BREW_BIN" info --cask "$cask" >/dev/null 2>&1
+}
+
 brew_install_formula() {
   formula="$1"
   if "$BREW_BIN" list --formula "$formula" >/dev/null 2>&1; then
     log "skip brew formula: $formula"
     append_status SKIPPED_TOOLS "$formula"
+  elif ! brew_formula_exists "$formula"; then
+    warn "skip brew formula: $formula (not available in current taps)"
+    append_status UNAVAILABLE_TOOLS "$formula"
   else
     log "install brew formula: $formula"
-    run_cmd "$BREW_BIN" install "$formula"
-    append_status INSTALLED_TOOLS "$formula"
+    if run_cmd "$BREW_BIN" install "$formula"; then
+      append_status INSTALLED_TOOLS "$formula"
+    else
+      warn "skip brew formula: $formula (install failed)"
+      append_status UNAVAILABLE_TOOLS "$formula"
+    fi
   fi
 }
 
@@ -275,10 +292,17 @@ brew_install_cask() {
   elif [ -n "$app_path" ] && [ -e "$app_path" ]; then
     warn "skip brew cask: $cask (app already exists at $app_path)"
     append_status SKIPPED_TOOLS "$cask"
+  elif ! brew_cask_exists "$cask"; then
+    warn "skip brew cask: $cask (not available in current taps)"
+    append_status UNAVAILABLE_TOOLS "$cask"
   else
     log "install brew cask: $cask"
-    run_cmd "$BREW_BIN" install --cask "$cask"
-    append_status INSTALLED_TOOLS "$cask"
+    if run_cmd "$BREW_BIN" install --cask "$cask"; then
+      append_status INSTALLED_TOOLS "$cask"
+    else
+      warn "skip brew cask: $cask (install failed)"
+      append_status UNAVAILABLE_TOOLS "$cask"
+    fi
   fi
 }
 
@@ -351,6 +375,8 @@ install_tools_brew() {
   brew_install_formula lazygit
   brew_install_formula rich-cli
   brew_install_formula glow
+  brew_install_formula fastfetch
+  brew_install_formula btop
 }
 
 install_tools_apt() {
@@ -368,6 +394,8 @@ install_tools_apt() {
   apt_install_package ripgrep
   apt_install_package lazygit
   apt_install_package glow
+  apt_install_package fastfetch
+  apt_install_package btop
   install_python_cli rich-cli
 }
 

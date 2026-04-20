@@ -2,7 +2,7 @@
 
 一个命令装好跨平台终端环境，支持 macOS、Linux、WSL。
 
-它会一次性安装并配置 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow`，并写入 shell 快捷命令与本地帮助文档。
+它会一次性安装并配置 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`，并写入 shell 快捷命令与本地帮助文档。
 
 ## 一眼看懂
 
@@ -10,6 +10,7 @@
 - 默认配好 `ghostty`、`tmux`、`yazi`
 - 附带 `hk` `tmx` `tmn` `tma` `tml` `y` 等常用命令
 - 同时支持 `brew` 和 `apt`
+- 会按系统适配，不可用工具自动跳过并汇总
 - 安装结束会汇总：已安装 / 已跳过 / 不可用
 
 ## 快速开始
@@ -66,6 +67,8 @@ nvim .
 - `lazygit`
 - `rich-cli`
 - `glow`
+- `fastfetch`
+- `btop`
 
 说明：
 

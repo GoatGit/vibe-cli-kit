@@ -1,6 +1,6 @@
 # Terminal Cheatsheet
 
-含まれるツール：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow。
+含まれるツール：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
 
 このチートシートは、プロジェクトのデフォルト設定に基づいた高頻度操作向けの簡潔なリファレンスです。
 
