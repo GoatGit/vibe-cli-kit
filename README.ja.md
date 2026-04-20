@@ -1,8 +1,28 @@
 # vibe-cli-kit
 
-macOS、Linux、WSL 向けのクロスプラットフォーム端末環境セットアップ。
+macOS、Linux、WSL 向けのワンコマンド端末セットアップキット。
 
-CLI ツール、端末設定、Yazi プレビュー設定、tmux 設定、ローカルのチートシートをまとめて導入します。
+`ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` と、shell 補助コマンド、ローカルチートシートをまとめて導入します。
+
+## ひと目でわかること
+
+- ツールと設定をまとめて導入
+- `ghostty` `tmux` `yazi` をすぐ使える状態にする
+- `hk` `tmx` `tmn` `tma` `tml` `y` を追加
+- `brew` と `apt` に対応
+- 実行後に installed / skipped / unavailable を要約表示
+
+## クイックスタート
+
+```sh
+sh install.sh
+source ~/.zshrc
+
+hk
+tmn
+y
+nvim .
+```
 
 ## 言語
 
@@ -52,13 +72,6 @@ CLI ツール、端末設定、Yazi プレビュー設定、tmux 設定、ロー
 - Debian / Ubuntu / WSL では `batcat -> bat`、`fdfind -> fd` を自動調整
 
 ## インストール
-
-通常インストール：
-
-```sh
-sh install.sh
-source ~/.zshrc
-```
 
 ドライラン：
 

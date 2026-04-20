@@ -1,8 +1,28 @@
 # vibe-cli-kit
 
-Cross-platform terminal environment bootstrap for macOS, Linux, and WSL.
+One-command terminal setup kit for macOS, Linux, and WSL.
 
-It installs CLI tools, terminal configuration, Yazi preview settings, tmux defaults, and a local cheatsheet.
+It installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow`, plus shell helpers and a local cheatsheet.
+
+## At a Glance
+
+- Install tools and configs in one pass
+- Set up `ghostty`, `tmux`, and `yazi` with sane defaults
+- Add helper commands like `hk`, `tmx`, `tmn`, `tma`, `tml`, `y`
+- Support `brew` and `apt`
+- Show installed / skipped / unavailable tools at the end
+
+## Quick Start
+
+```sh
+sh install.sh
+source ~/.zshrc
+
+hk
+tmn
+y
+nvim .
+```
 
 ## Languages
 
@@ -52,13 +72,6 @@ Notes:
 - Debian / Ubuntu / WSL automatically handle `batcat -> bat` and `fdfind -> fd`
 
 ## Installation
-
-Standard install:
-
-```sh
-sh install.sh
-source ~/.zshrc
-```
 
 Dry run:
 

@@ -11,6 +11,9 @@ PLATFORM=
 PACKAGE_MANAGER=
 APT_UPDATED=0
 I18N_LANG_RAW="${VIBE_CLI_KIT_LANG:-${LANG:-${LC_MESSAGES:-${LC_ALL:-en}}}}"
+INSTALLED_TOOLS=
+SKIPPED_TOOLS=
+UNAVAILABLE_TOOLS=
 
 BREW_BIN="${BREW_BIN:-}"
 if [ -z "${BREW_BIN}" ]; then
@@ -66,6 +69,9 @@ msg() {
         unsupported_package_manager) printf '不支持的包管理器，当前仅支持 Homebrew 和 apt' ;;
         platform) printf '平台' ;;
         package_manager) printf '包管理器' ;;
+        installed_tools) printf '已安装工具' ;;
+        skipped_tools) printf '已跳过工具' ;;
+        unavailable_tools) printf '不可用工具' ;;
         *) printf '%s' "$key" ;;
       esac
       ;;
@@ -90,6 +96,9 @@ msg() {
         unsupported_package_manager) printf '未対応のパッケージマネージャーです。Homebrew と apt のみ対応しています' ;;
         platform) printf 'プラットフォーム' ;;
         package_manager) printf 'パッケージマネージャー' ;;
+        installed_tools) printf 'インストール済みツール' ;;
+        skipped_tools) printf 'スキップしたツール' ;;
+        unavailable_tools) printf '利用できないツール' ;;
         *) printf '%s' "$key" ;;
       esac
       ;;
@@ -114,6 +123,9 @@ msg() {
         unsupported_package_manager) printf 'unsupported package manager. Supported: Homebrew, apt' ;;
         platform) printf 'Platform' ;;
         package_manager) printf 'Package manager' ;;
+        installed_tools) printf 'Installed tools' ;;
+        skipped_tools) printf 'Skipped tools' ;;
+        unavailable_tools) printf 'Unavailable tools' ;;
         *) printf '%s' "$key" ;;
       esac
       ;;
@@ -203,6 +215,18 @@ ensure_dir() {
   run_cmd mkdir -p "$1"
 }
 
+append_status() {
+  list_name="$1"
+  item="$2"
+  eval "current_value=\${$list_name:-}"
+  if [ -z "$current_value" ]; then
+    eval "$list_name=\"\$item\""
+  else
+    eval "$list_name=\"\$current_value
+\$item\""
+  fi
+}
+
 apt_update_once() {
   if [ "$APT_UPDATED" -eq 1 ]; then
     return 0
@@ -221,9 +245,11 @@ brew_install_formula() {
   formula="$1"
   if "$BREW_BIN" list --formula "$formula" >/dev/null 2>&1; then
     log "skip brew formula: $formula"
+    append_status SKIPPED_TOOLS "$formula"
   else
     log "install brew formula: $formula"
     run_cmd "$BREW_BIN" install "$formula"
+    append_status INSTALLED_TOOLS "$formula"
   fi
 }
 
@@ -239,11 +265,14 @@ brew_install_cask() {
 
   if "$BREW_BIN" list --cask "$cask" >/dev/null 2>&1; then
     log "skip brew cask: $cask"
+    append_status SKIPPED_TOOLS "$cask"
   elif [ -n "$app_path" ] && [ -e "$app_path" ]; then
     warn "skip brew cask: $cask (app already exists at $app_path)"
+    append_status SKIPPED_TOOLS "$cask"
   else
     log "install brew cask: $cask"
     run_cmd "$BREW_BIN" install --cask "$cask"
+    append_status INSTALLED_TOOLS "$cask"
   fi
 }
 
@@ -251,15 +280,18 @@ apt_install_package() {
   pkg="$1"
   if dpkg -s "$pkg" >/dev/null 2>&1; then
     log "skip apt package: $pkg"
+    append_status SKIPPED_TOOLS "$pkg"
     return 0
   fi
   apt_update_once
   if ! apt_package_exists "$pkg"; then
     warn "skip apt package: $pkg (not available in current repo)"
+    append_status UNAVAILABLE_TOOLS "$pkg"
     return 0
   fi
   log "install apt package: $pkg"
   run_root_cmd apt-get install -y "$pkg"
+  append_status INSTALLED_TOOLS "$pkg"
 }
 
 install_python_cli() {
@@ -267,9 +299,11 @@ install_python_cli() {
   if command -v pipx >/dev/null 2>&1; then
     if pipx list 2>/dev/null | grep -q "$package"; then
       log "skip pipx package: $package"
+      append_status SKIPPED_TOOLS "$package"
     else
       log "install pipx package: $package"
       run_cmd pipx install "$package"
+      append_status INSTALLED_TOOLS "$package"
     fi
     return 0
   fi
@@ -278,13 +312,16 @@ install_python_cli() {
     if python3 -m pip --version >/dev/null 2>&1; then
       log "install python package with pip --user: $package"
       run_cmd python3 -m pip install --user "$package"
+      append_status INSTALLED_TOOLS "$package"
     else
       warn "skip python package: $package (python3 is available but pip is missing)"
+      append_status UNAVAILABLE_TOOLS "$package"
     fi
     return 0
   fi
 
   warn "skip python package: $package (python3/pipx not found)"
+  append_status UNAVAILABLE_TOOLS "$package"
 }
 
 install_tools_brew() {
@@ -292,6 +329,7 @@ install_tools_brew() {
     brew_install_cask ghostty
   else
     warn "skip ghostty: automatic installation is only enabled on macOS"
+    append_status SKIPPED_TOOLS "ghostty"
   fi
 
   brew_install_formula yazi
@@ -311,6 +349,7 @@ install_tools_brew() {
 
 install_tools_apt() {
   warn "ghostty is skipped on apt-based systems; install it manually if your desktop distro supports it"
+  append_status SKIPPED_TOOLS "ghostty"
   apt_install_package yazi
   apt_install_package lsd
   apt_install_package bat
@@ -431,6 +470,23 @@ install_shell_integration() {
   append_managed_block "$SHELL_RC"
 }
 
+print_status_block() {
+  title="$1"
+  values="$2"
+  if [ -z "$values" ]; then
+    return 0
+  fi
+
+  printf '\n%s:\n' "$title"
+  OLD_IFS=$IFS
+  IFS='
+'
+  for item in $values; do
+    [ -n "$item" ] && printf '  - %s\n' "$item"
+  done
+  IFS=$OLD_IFS
+}
+
 print_summary() {
   if [ "$DRY_RUN" -eq 1 ]; then
     cat <<EOF
@@ -462,6 +518,10 @@ $(msg useful_commands)
   rg foo
   lazygit
 EOF
+
+  print_status_block "$(msg installed_tools)" "$INSTALLED_TOOLS"
+  print_status_block "$(msg skipped_tools)" "$SKIPPED_TOOLS"
+  print_status_block "$(msg unavailable_tools)" "$UNAVAILABLE_TOOLS"
 }
 
 parse_args() {

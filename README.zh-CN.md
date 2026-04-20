@@ -1,8 +1,28 @@
 # vibe-cli-kit
 
-一键安装并配置一套跨平台终端工作环境，支持 macOS、Linux、WSL。
+一个命令装好跨平台终端环境，支持 macOS、Linux、WSL。
 
-它会同时安装命令行工具、终端配置、Yazi 预览方案、tmux 配置，以及本地快捷帮助文档。
+它会一次性安装并配置 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow`，并写入 shell 快捷命令与本地帮助文档。
+
+## 一眼看懂
+
+- 一次执行，工具和配置一起装
+- 默认配好 `ghostty`、`tmux`、`yazi`
+- 附带 `hk` `tmx` `tmn` `tma` `tml` `y` 等常用命令
+- 同时支持 `brew` 和 `apt`
+- 安装结束会汇总：已安装 / 已跳过 / 不可用
+
+## 快速开始
+
+```sh
+sh install.sh
+source ~/.zshrc
+
+hk
+tmn
+y
+nvim .
+```
 
 ## 语言
 
@@ -54,13 +74,6 @@
 - Debian / Ubuntu / WSL 下，脚本会自动处理 `batcat -> bat`、`fdfind -> fd` 的兼容问题
 
 ## 安装
-
-标准安装：
-
-```sh
-sh install.sh
-source ~/.zshrc
-```
 
 只预演，不真正执行：
 
