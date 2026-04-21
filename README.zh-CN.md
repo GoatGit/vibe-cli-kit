@@ -2,16 +2,11 @@
 
 站在巨人的铲子上。
 
-一个面向 vibe-coding 的跨平台终端工作台，支持 macOS、Linux、WSL。
+vibe-cli-kit 是一个面向 macOS、Linux、WSL 的跨平台终端工作台，目标是让终端优先的编码环境在安装当天就能进入状态。
 
-这个项目的初衷很直接：
+它的出发点很简单：不重造终端工具，而是在成熟工具之上加一层薄而实用的默认配置，让整套环境更顺手、更好用，也更容易长期维护。
 
-- 不重复造轮子，优先站在成熟工具之上
-- 不做臃肿的 dotfiles 大一统框架
-- 把 `yazi`、`tmux`、`nvim`、`ripgrep`、`lazygit` 这类高频工具用一层薄薄的胶水串起来
-- 让“装完就能进入写代码状态”成为默认体验
-
-它会一次性安装并配置 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`，并写入 shell 快捷命令与本地帮助文档。
+vibe-cli-kit 不追求做成一个庞杂的个人配置框架，而是提供一个轻量、可用、开箱即用的终端基线。它会一次性安装并配置 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`，并写入 shell 快捷命令与本地帮助文档。
 
 ## 一眼看懂
 

@@ -2,17 +2,17 @@
 
 Build on the shoulders of giants, with a shovel in hand.
 
-vibe-cli-kit is a cross-platform terminal workbench for vibe-coding on macOS, Linux, and WSL.
+vibe-cli-kit is a cross-platform terminal workbench for macOS, Linux, and WSL, built to make terminal-first coding feel ready on day one.
+
+It starts from a simple idea: use strong existing terminal tools, connect them with a thin layer of practical defaults, and keep the setup fast, usable, and easy to live with.
+
+Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lightweight baseline for daily terminal work. In one pass, it installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
 
 [![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL-1f6feb?style=flat)](#notes)
 [![pkg](https://img.shields.io/badge/pkg-brew%20%7C%20apt-2da44e?style=flat)](#notes)
 [![English README](https://img.shields.io/badge/README-English-1f6feb?style=flat)](README.en.md)
 [![Chinese README](https://img.shields.io/badge/README-zh--CN-2da44e?style=flat)](README.zh-CN.md)
 [![Japanese README](https://img.shields.io/badge/README-ja-f59e0b?style=flat)](README.ja.md)
-
-The goal is simple: start from proven terminal tools, wire them together with practical defaults, and make daily coding flow faster without turning your setup into a dotfiles maze.
-
-Install and configure `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop` and a local cheatsheet in one pass.
 
 ## What You Get
 
