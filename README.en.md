@@ -1,6 +1,6 @@
 # vibe-cli-kit
 
-Build on the shoulders of giants, with a shovel in hand.
+## **Build on the shoulders of giants, with a shovel in hand.**
 
 vibe-cli-kit is a cross-platform terminal workbench for macOS, Linux, and WSL, built to make terminal-first coding feel ready on day one.
 
