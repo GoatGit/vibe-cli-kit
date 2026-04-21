@@ -1,0 +1,52 @@
+#!/bin/sh
+
+set -eu
+
+if ! command -v rg >/dev/null 2>&1; then
+  printf 'rg not found\n' >&2
+  exit 1
+fi
+
+if ! command -v fzf >/dev/null 2>&1; then
+  printf 'fzf not found\n' >&2
+  exit 1
+fi
+
+if ! command -v nvim >/dev/null 2>&1; then
+  printf 'nvim not found\n' >&2
+  exit 1
+fi
+
+preview_cmd='file=$(printf "%s" {} | cut -d: -f1); line=$(printf "%s" {} | cut -d: -f2); if command -v bat >/dev/null 2>&1; then start=$((line>20 ? line-20 : 1)); end=$((line+20)); bat --color=always --style=plain --highlight-line "$line" --line-range "$start:$end" "$file"; else sed -n "1,200p" "$file"; fi'
+
+if [ "$#" -gt 0 ]; then
+  query="$*"
+  selected="$(
+    rg --line-number --no-heading --color=never --smart-case "$query" . | \
+      fzf \
+        --prompt='match> ' \
+        --height=80% \
+        --layout=reverse \
+        --query "$query" \
+        --preview "$preview_cmd"
+  )"
+else
+  selected="$(
+    fzf \
+      --disabled \
+      --prompt='rg> ' \
+      --height=80% \
+      --layout=reverse \
+      --bind 'start:reload:rg --line-number --no-heading --color=never --smart-case "" . || true' \
+      --bind 'change:reload:rg --line-number --no-heading --color=never --smart-case {q} . || true' \
+      --preview "$preview_cmd"
+  )"
+fi
+
+[ -n "$selected" ] || exit 0
+
+file=${selected%%:*}
+rest=${selected#*:}
+line=${rest%%:*}
+
+exec nvim "+$line" "$file"

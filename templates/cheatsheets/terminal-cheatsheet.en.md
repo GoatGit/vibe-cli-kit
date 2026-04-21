@@ -8,6 +8,11 @@ Compact reference based on the default project configuration, optimized for high
 
 ```sh
 hk          # Open this cheatsheet
+v doctor    # Check tool/config health
+v sync --dry-run --only tmux
+e           # Fuzzy-open a file in nvim
+fif tmux    # Search content and open the match
+p           # Jump to a project directory
 tmn         # Open or create a tmux session using the current directory name
 tmx dev     # Enter the dev session
 y           # Open Yazi
@@ -21,6 +26,11 @@ nvim .      # Open current directory
 ## Shell Entry Points
 
 - `hk` / `hotkeys`: open the cheatsheet
+- `v doctor`: check installation and config health
+- `v sync --dry-run --only tmux`: preview config sync
+- `e`: fuzzy-open a file with `fzf` + `nvim`
+- `fif`: search content with `rg` + `fzf` and jump into `nvim`
+- `p`: jump to a project directory
 - `tmx`: enter `main`; attach if it exists, create if it does not
 - `tmx dev`: enter the `dev` session
 - `tmn`: create or enter a session named after the current directory
@@ -118,8 +128,16 @@ fd . | fzf
 - `nvim`: open Neovim
 - `nvim .`: open current directory
 - `nvim file`: edit file
+- `e`: fuzzy-pick and open a file
+- `fif foo`: search content and jump to the match
 - `lazygit`: open Git TUI
 - `glow file.md`: read a Markdown file in the terminal
+
+## Project Jump
+
+- `p`: fuzzy-pick from common project roots
+- `p foo`: prefer `zoxide` or project-name match
+- `export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"`: override project roots
 
 ## Markdown Reading
 

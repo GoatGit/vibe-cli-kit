@@ -1,0 +1,371 @@
+#!/bin/sh
+
+set -eu
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+KIT_DIR="$CONFIG_DIR/vibe-cli-kit"
+TEMPLATE_DIR="$KIT_DIR/templates"
+CHEATSHEET_DIR="$CONFIG_DIR/cheatsheets"
+LOCAL_BIN_DIR="$HOME/.local/bin"
+SHELL_RC="$HOME/.zshrc"
+START_MARKER="# >>> vibe-cli-kit >>>"
+END_MARKER="# <<< vibe-cli-kit <<<"
+SYNC_TARGET=all
+SYNC_MODE=overwrite
+SYNC_DRY_RUN=0
+
+OK_COUNT=0
+WARN_COUNT=0
+FAIL_COUNT=0
+
+usage() {
+  cat <<'EOF'
+Usage:
+  v doctor
+  v sync [--dry-run] [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell] [--mode overwrite|skip|backup]
+  v --help
+EOF
+}
+
+report_ok() {
+  OK_COUNT=$((OK_COUNT + 1))
+  printf 'ok    %s\n' "$*"
+}
+
+report_warn() {
+  WARN_COUNT=$((WARN_COUNT + 1))
+  printf 'warn  %s\n' "$*"
+}
+
+report_fail() {
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  printf 'fail  %s\n' "$*"
+}
+
+report_skip() {
+  printf 'skip  %s\n' "$*"
+}
+
+check_file() {
+  label="$1"
+  path="$2"
+  if [ -f "$path" ]; then
+    report_ok "$label: $path"
+  else
+    report_fail "$label: missing ($path)"
+  fi
+}
+
+copy_file() {
+  src="$1"
+  dest="$2"
+
+  if [ ! -f "$src" ]; then
+    printf 'fail  missing template: %s\n' "$src" >&2
+    exit 1
+  fi
+
+  mkdir -p "$(dirname "$dest")"
+
+  if [ -f "$dest" ]; then
+    case "$SYNC_MODE" in
+      skip)
+        printf 'skip  %s\n' "$dest"
+        return 0
+        ;;
+      backup)
+        backup_path="$dest.bak.$(date +%Y%m%d-%H%M%S)"
+        if [ "$SYNC_DRY_RUN" -eq 1 ]; then
+          printf 'dry   cp %s %s\n' "$dest" "$backup_path"
+        else
+          cp "$dest" "$backup_path"
+        fi
+        ;;
+    esac
+  fi
+
+  if [ "$SYNC_DRY_RUN" -eq 1 ]; then
+    printf 'dry   cp %s %s\n' "$src" "$dest"
+  else
+    cp "$src" "$dest"
+    printf 'sync  %s\n' "$dest"
+  fi
+}
+
+check_cmd() {
+  label="$1"
+  primary="$2"
+  fallback="${3:-}"
+
+  if command -v "$primary" >/dev/null 2>&1; then
+    report_ok "$label: $(command -v "$primary")"
+    return 0
+  fi
+
+  if [ -n "$fallback" ] && command -v "$fallback" >/dev/null 2>&1; then
+    report_ok "$label: $(command -v "$fallback") (via $fallback)"
+    return 0
+  fi
+
+  report_warn "$label: command not found"
+}
+
+check_zshrc_markers() {
+  if [ ! -f "$SHELL_RC" ]; then
+    report_fail "shell integration: missing $SHELL_RC"
+    return 0
+  fi
+
+  if grep -Fq "$START_MARKER" "$SHELL_RC" && grep -Fq "$END_MARKER" "$SHELL_RC"; then
+    report_ok "shell integration: managed block found in $SHELL_RC"
+  else
+    report_fail "shell integration: managed block missing in $SHELL_RC"
+  fi
+}
+
+check_ghostty() {
+  if [ "$(uname -s)" = "Darwin" ]; then
+    if [ -d "/Applications/Ghostty.app" ] || command -v ghostty >/dev/null 2>&1; then
+      if command -v ghostty >/dev/null 2>&1; then
+        report_ok "ghostty: $(command -v ghostty)"
+      else
+        report_ok "ghostty: /Applications/Ghostty.app"
+      fi
+    else
+      report_warn "ghostty: not found on macOS"
+    fi
+  else
+    report_skip "ghostty: auto-install is macOS-only"
+  fi
+}
+
+check_yazi_plugin() {
+  plugin_dir="$CONFIG_DIR/yazi/plugins/piper.yazi"
+  if [ -d "$plugin_dir" ]; then
+    report_ok "yazi plugin: $plugin_dir"
+  else
+    report_warn "yazi plugin: missing ($plugin_dir)"
+  fi
+}
+
+check_template_store() {
+  if [ -d "$TEMPLATE_DIR" ]; then
+    report_ok "template store: $TEMPLATE_DIR"
+  else
+    report_fail "template store: missing ($TEMPLATE_DIR)"
+  fi
+}
+
+append_managed_block() {
+  snippet="$1"
+  tmp_file="$SHELL_RC.vibe-cli-kit.tmp"
+
+  mkdir -p "$(dirname "$SHELL_RC")"
+  [ -f "$SHELL_RC" ] || : > "$SHELL_RC"
+
+  if [ "$SYNC_DRY_RUN" -eq 1 ]; then
+    printf 'dry   update managed block in %s\n' "$SHELL_RC"
+    return 0
+  fi
+
+  awk -v start="$START_MARKER" -v end="$END_MARKER" '
+    $0 == start { skip=1; next }
+    $0 == end { skip=0; next }
+    skip != 1 { print }
+  ' "$SHELL_RC" > "$tmp_file"
+
+  {
+    cat "$tmp_file"
+    printf '\n%s\n' "$START_MARKER"
+    cat "$snippet"
+    printf '%s\n' "$END_MARKER"
+  } > "$SHELL_RC"
+
+  rm -f "$tmp_file"
+  printf 'sync  %s\n' "$SHELL_RC"
+}
+
+sync_ghostty() {
+  copy_file "$TEMPLATE_DIR/ghostty/config" "$CONFIG_DIR/ghostty/config"
+}
+
+sync_yazi() {
+  copy_file "$TEMPLATE_DIR/yazi/yazi.toml" "$CONFIG_DIR/yazi/yazi.toml"
+  copy_file "$TEMPLATE_DIR/yazi/package.toml" "$CONFIG_DIR/yazi/package.toml"
+}
+
+sync_tmux() {
+  copy_file "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf"
+}
+
+sync_cheatsheets() {
+  copy_file "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.en.md" "$CHEATSHEET_DIR/terminal-cheatsheet.en.md"
+  copy_file "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.zh-CN.md" "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md"
+  copy_file "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.ja.md" "$CHEATSHEET_DIR/terminal-cheatsheet.ja.md"
+}
+
+sync_bin() {
+  copy_file "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
+  copy_file "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx"
+  copy_file "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v"
+  copy_file "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e"
+  copy_file "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif"
+  if [ "$SYNC_DRY_RUN" -eq 1 ]; then
+    printf 'dry   chmod +x %s %s %s %s %s\n' "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+  else
+    chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+    printf 'sync  chmod +x scripts in %s\n' "$LOCAL_BIN_DIR"
+  fi
+}
+
+sync_shell() {
+  snippet="$TEMPLATE_DIR/shell/zshrc.snippet"
+  if [ ! -f "$snippet" ]; then
+    printf 'fail  missing template: %s\n' "$snippet" >&2
+    exit 1
+  fi
+  append_managed_block "$snippet"
+}
+
+sync_target() {
+  case "$1" in
+    all)
+      sync_ghostty
+      sync_yazi
+      sync_tmux
+      sync_cheatsheets
+      sync_bin
+      sync_shell
+      ;;
+    ghostty) sync_ghostty ;;
+    yazi) sync_yazi ;;
+    tmux) sync_tmux ;;
+    cheatsheets) sync_cheatsheets ;;
+    bin) sync_bin ;;
+    shell) sync_shell ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+parse_sync_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        SYNC_DRY_RUN=1
+        ;;
+      --only)
+        shift
+        [ "$#" -gt 0 ] || {
+          usage >&2
+          exit 1
+        }
+        SYNC_TARGET="$1"
+        ;;
+      --mode)
+        shift
+        [ "$#" -gt 0 ] || {
+          usage >&2
+          exit 1
+        }
+        SYNC_MODE="$1"
+        ;;
+      *)
+        usage >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+
+  case "$SYNC_MODE" in
+    overwrite|skip|backup) ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+sync_configs() {
+  parse_sync_args "$@"
+
+  if [ ! -d "$TEMPLATE_DIR" ]; then
+    printf 'fail  template store missing: %s\n' "$TEMPLATE_DIR" >&2
+    printf 'hint  re-run: sh install.sh --only-config\n' >&2
+    exit 1
+  fi
+
+  printf 'vibe-cli-kit sync\n'
+  printf 'target=%s mode=%s dry-run=%s\n\n' "$SYNC_TARGET" "$SYNC_MODE" "$SYNC_DRY_RUN"
+  sync_target "$SYNC_TARGET"
+}
+
+doctor() {
+  printf 'vibe-cli-kit doctor\n\n'
+
+  check_template_store
+  check_file "tmux config" "$HOME/.tmux.conf"
+  check_file "ghostty config" "$CONFIG_DIR/ghostty/config"
+  check_file "yazi config" "$CONFIG_DIR/yazi/yazi.toml"
+  check_file "yazi package" "$CONFIG_DIR/yazi/package.toml"
+  check_file "cheatsheet (en)" "$CHEATSHEET_DIR/terminal-cheatsheet.en.md"
+  check_file "cheatsheet (zh-CN)" "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md"
+  check_file "cheatsheet (ja)" "$CHEATSHEET_DIR/terminal-cheatsheet.ja.md"
+  check_file "script: terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
+  check_file "script: tmx" "$LOCAL_BIN_DIR/tmx"
+  check_file "script: v" "$LOCAL_BIN_DIR/v"
+  check_file "script: e" "$LOCAL_BIN_DIR/e"
+  check_file "script: fif" "$LOCAL_BIN_DIR/fif"
+  check_zshrc_markers
+
+  printf '\n'
+
+  check_ghostty
+  check_cmd "yazi" "yazi"
+  check_cmd "lsd" "lsd"
+  check_cmd "bat" "bat" "batcat"
+  check_cmd "tmux" "tmux"
+  check_cmd "fzf" "fzf"
+  check_cmd "fd" "fd" "fdfind"
+  check_cmd "atuin" "atuin"
+  check_cmd "zoxide" "zoxide"
+  check_cmd "nvim" "nvim" "neovim"
+  check_cmd "ripgrep" "rg" "ripgrep"
+  check_cmd "lazygit" "lazygit"
+  check_cmd "rich-cli" "rich" "rich-cli"
+  check_cmd "glow" "glow"
+  check_cmd "fastfetch" "fastfetch"
+  check_cmd "btop" "btop"
+  check_yazi_plugin
+
+  printf '\nSummary: ok=%s warn=%s fail=%s\n' "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
+
+  if [ "$FAIL_COUNT" -gt 0 ]; then
+    exit 1
+  fi
+}
+
+case "${1:-}" in
+  doctor)
+    shift
+    [ "$#" -eq 0 ] || {
+      usage >&2
+      exit 1
+    }
+    doctor
+    ;;
+  sync)
+    shift
+    sync_configs "$@"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 1
+    ;;
+esac

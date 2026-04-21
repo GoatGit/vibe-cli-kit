@@ -71,3 +71,38 @@ tmn() {
 }
 
 alias tml='tmux list-sessions'
+
+p() {
+  local query roots selected
+
+  if [ "$#" -gt 0 ] && [ -d "$1" ]; then
+    cd "$1"
+    return
+  fi
+
+  if [ "$#" -gt 0 ] && command -v zoxide >/dev/null 2>&1; then
+    local z_match
+    z_match="$(zoxide query "$1" 2>/dev/null || true)"
+    if [ -n "$z_match" ] && [ -d "$z_match" ]; then
+      cd "$z_match"
+      return
+    fi
+  fi
+
+  if ! command -v fzf >/dev/null 2>&1; then
+    printf 'fzf not found\n' >&2
+    return 1
+  fi
+
+  query="${1:-}"
+  roots="${VIBE_PROJECT_DIRS:-$HOME/AI:$HOME/Code:$HOME/Projects:$HOME/workspace:$HOME/src}"
+
+  selected="$(
+    printf '%s\n' "$roots" | tr ':' '\n' | while IFS= read -r root; do
+      [ -d "$root" ] || continue
+      find "$root" -mindepth 1 -maxdepth 3 -type d -name .git -prune 2>/dev/null | sed 's#/.git$##'
+    done | sort -u | fzf --prompt='project> ' --height=80% --layout=reverse --query "$query"
+  )"
+
+  [ -n "$selected" ] && cd "$selected"
+}

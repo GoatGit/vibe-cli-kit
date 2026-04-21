@@ -1,0 +1,45 @@
+#!/bin/sh
+
+set -eu
+
+pick_source() {
+  if command -v rg >/dev/null 2>&1; then
+    rg --files
+    return 0
+  fi
+
+  if command -v fd >/dev/null 2>&1; then
+    fd . -t f
+    return 0
+  fi
+
+  find . -type f
+}
+
+if [ "$#" -gt 0 ]; then
+  exec nvim "$@"
+fi
+
+if ! command -v nvim >/dev/null 2>&1; then
+  printf 'nvim not found\n' >&2
+  exit 1
+fi
+
+if ! command -v fzf >/dev/null 2>&1; then
+  printf 'fzf not found\n' >&2
+  exit 1
+fi
+
+preview_cmd='if command -v bat >/dev/null 2>&1; then bat --color=always --style=plain --line-range=:200 {}; else sed -n "1,200p" {}; fi'
+
+selected="$(
+  pick_source | fzf \
+    --prompt='file> ' \
+    --height=80% \
+    --layout=reverse \
+    --preview "$preview_cmd"
+)"
+
+[ -n "$selected" ] || exit 0
+
+exec nvim "$selected"

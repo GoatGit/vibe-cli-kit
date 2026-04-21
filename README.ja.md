@@ -8,8 +8,9 @@ macOS、Linux、WSL 向けのワンコマンド端末セットアップキット
 
 - ツールと設定をまとめて導入
 - `ghostty` `tmux` `yazi` をすぐ使える状態にする
-- `hk` `tmx` `tmn` `tma` `tml` `y` を追加
+- `hk` `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y` を追加
 - `brew` と `apt` に対応
+- ローカルテンプレートを保持し、`v doctor` と `v sync` を提供
 - 環境に合わせて適応し、利用できないツールは安全にスキップ
 - 実行後に installed / skipped / unavailable を要約表示
 
@@ -20,6 +21,10 @@ sh install.sh
 source ~/.zshrc
 
 hk
+v doctor
+v sync --dry-run --only tmux
+e
+fif tmux
 tmn
 y
 nvim .
@@ -106,6 +111,10 @@ sh install.sh --help
 - `~/.tmux.conf`
 - `~/.local/bin/terminal-cheatsheet`
 - `~/.local/bin/tmx`
+- `~/.local/bin/v`
+- `~/.local/bin/e`
+- `~/.local/bin/fif`
+- `~/.config/vibe-cli-kit/templates/`
 
 さらに `~/.zshrc` の管理ブロックを更新します：
 
@@ -117,6 +126,11 @@ sh install.sh --help
 ```sh
 source ~/.zshrc
 hk
+v doctor
+v sync --dry-run --only tmux
+e
+fif tmux
+p
 tmn
 y
 tmx dev
@@ -143,6 +157,19 @@ glow README.ja.md
 - `tma`: 指定セッションへ attach / create
 - `tml`: セッション一覧
 
+### ワークフローコマンド
+
+- `v doctor`：ツール、設定、スクリプト、shell 統合を確認
+- `v sync --dry-run --only tmux`：設定同期をプレビュー
+- `v sync --only yazi`：Yazi 設定だけ同期
+- `v sync --mode backup`：上書き前にバックアップ
+- `e`：ファイルをあいまい選択して `nvim` で開く
+- `e README.md`：指定ファイルを直接 `nvim` で開く
+- `fif tmux`：内容検索してヒット行へ移動
+- `fif`：対話型の全文検索
+- `p`：プロジェクトディレクトリへ移動
+- `p vibe-cli-kit`：`zoxide` またはプロジェクト候補から移動
+
 ### Yazi
 
 - `y` で起動
@@ -160,6 +187,11 @@ glow README.ja.md
 
 - `hk`
 - `hotkeys`
+- `v doctor`
+- `v sync --dry-run --only tmux`
+- `e`
+- `fif tmux`
+- `p`
 
 システム言語から自動選択し、手動指定も可能です：
 
@@ -170,12 +202,109 @@ terminal-cheatsheet --lang zh-CN
 terminal-cheatsheet --lang ja
 ```
 
+## コマンド説明
+
+### `v doctor`
+
+確認内容：
+
+- テンプレートストアの存在
+- `ghostty` / `tmux` / `yazi` 設定の配置
+- `terminal-cheatsheet`、`tmx`、`v`、`e`、`fif` のインストール
+- `~/.zshrc` の管理ブロック
+- 主要 CLI ツールの利用可否
+
+出力：
+
+- `ok`：正常
+- `warn`：利用はできるが確認推奨
+- `fail`：インストールまたは設定が不完全
+
+### `v sync`
+
+用途：
+
+- ローカルテンプレートから設定を再同期
+- ツールの再インストールはしない
+- テンプレート更新後の再反映に向く
+
+主なオプション：
+
+- `--dry-run`
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+- `--mode overwrite|skip|backup`
+
+例：
+
+```sh
+v sync --dry-run --only tmux
+v sync --only shell
+v sync --only bin --mode backup
+v sync --mode skip
+```
+
+### `e`
+
+用途：
+
+- `rg --files` または `fd` でファイル一覧
+- `fzf` で選択
+- `nvim` で開く
+
+例：
+
+```sh
+e
+e README.ja.md
+```
+
+### `fif`
+
+用途：
+
+- `rg` で内容検索
+- `fzf` で候補選択
+- 対応行を `nvim` で開く
+
+例：
+
+```sh
+fif tmux
+fif install_yazi_plugins
+fif
+```
+
+### `p`
+
+用途：
+
+- プロジェクトディレクトリへ素早く移動
+- 指定ディレクトリがあれば直接 `cd`
+- 次に `zoxide query`
+- それ以外は共通プロジェクトルートから git リポジトリを検索
+
+デフォルト探索先：
+
+- `$HOME/AI`
+- `$HOME/Code`
+- `$HOME/Projects`
+- `$HOME/workspace`
+- `$HOME/src`
+
+上書き：
+
+```sh
+export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"
+```
+
 ## メモ
 
 - `hk` は `bat` を優先し、なければ `less`
 - `vim` は `nvim` にマップ
 - `--only-config` はツールをインストールしない
 - `--dry-run` は実際には変更しない
+- `v sync` は `~/.config/vibe-cli-kit/templates/` をローカルテンプレートとして使う
+- `p` は現在の shell ディレクトリを変えるため、独立コマンドではなく shell 関数
 
 ## メンテナンス
 

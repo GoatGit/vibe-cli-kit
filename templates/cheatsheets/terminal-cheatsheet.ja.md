@@ -8,6 +8,11 @@
 
 ```sh
 hk          # このチートシートを開く
+v doctor    # ツールと設定の状態を確認
+v sync --dry-run --only tmux
+e           # ファイルをあいまい選択して nvim で開く
+fif tmux    # 内容検索してヒット位置へ移動
+p           # プロジェクトディレクトリへ移動
 tmn         # 現在のディレクトリ名で tmux セッションを作成/再利用
 tmx dev     # dev セッションへ入る
 y           # Yazi を開く
@@ -21,6 +26,11 @@ nvim .      # 現在のディレクトリを開く
 ## Shell エントリ
 
 - `hk` / `hotkeys`：チートシートを開く
+- `v doctor`：インストールと設定の状態を確認
+- `v sync --dry-run --only tmux`：設定同期をプレビュー
+- `e`：`fzf` + `nvim` でファイルを開く
+- `fif`：`rg` + `fzf` で検索して `nvim` にジャンプ
+- `p`：プロジェクトディレクトリへ移動
 - `tmx`：`main` に入る。存在すれば attach、なければ作成
 - `tmx dev`：`dev` セッションへ入る
 - `tmn`：現在のディレクトリ名でセッションを作成または再利用
@@ -118,8 +128,16 @@ fd . | fzf
 - `nvim`：Neovim を開く
 - `nvim .`：現在のディレクトリを開く
 - `nvim file`：ファイル編集
+- `e`：ファイルをあいまい選択して開く
+- `fif foo`：内容検索して該当行へ移動
 - `lazygit`：Git TUI を開く
 - `glow file.md`：ターミナルで Markdown を読む
+
+## プロジェクト移動
+
+- `p`：共通プロジェクトルートからあいまい選択
+- `p foo`：`zoxide` またはプロジェクト名で移動
+- `export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"`：探索ルートを上書き
 
 ## Markdown の閲覧
 

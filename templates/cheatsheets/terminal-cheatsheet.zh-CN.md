@@ -8,6 +8,11 @@
 
 ```sh
 hk          # 打开这份速查表
+v doctor    # 检查工具和配置状态
+v sync --dry-run --only tmux
+e           # 模糊选文件并用 nvim 打开
+fif tmux    # 搜内容并直接跳到命中位置
+p           # 快速跳项目目录
 tmn         # 当前目录开/进 tmux session
 tmx dev     # 进入 dev session
 y           # 打开 Yazi
@@ -21,6 +26,11 @@ nvim .      # 打开当前目录
 ## Shell 入口
 
 - `hk` / `hotkeys`：打开速查表
+- `v doctor`：检查安装与配置状态
+- `v sync --dry-run --only tmux`：预览配置同步
+- `e`：用 `fzf` + `nvim` 模糊打开文件
+- `fif`：用 `rg` + `fzf` 搜内容并跳进 `nvim`
+- `p`：快速跳项目目录
 - `tmx`：进 `main`；存在则 attach，不存在则创建
 - `tmx dev`：进 `dev` 会话；存在则 attach，不存在则创建
 - `tmn`：用当前目录名创建或进入 session
@@ -118,8 +128,16 @@ fd . | fzf
 - `nvim`：打开 Neovim
 - `nvim .`：打开当前目录
 - `nvim file`：编辑文件
+- `e`：模糊选文件后打开
+- `fif foo`：搜内容并跳到命中位置
 - `lazygit`：打开 Git TUI
 - `glow file.md`：单独阅读 Markdown 文档
+
+## 项目跳转
+
+- `p`：从常见项目目录里模糊选择
+- `p foo`：优先用 `zoxide` 或项目名匹配
+- `export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"`：自定义搜索根目录
 
 ## Markdown 阅读
 

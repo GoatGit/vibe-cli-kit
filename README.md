@@ -13,9 +13,10 @@ Install and configure `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygi
 ## What You Get
 
 - Ready-to-use terminal defaults for `ghostty`, `tmux`, and `yazi`
-- Shell helpers like `hk` `tmx` `tmn` `tma` `tml` `y`
+- Shell helpers like `hk` `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y`
 - Localized cheatsheets in English, Simplified Chinese, and Japanese
 - Cross-platform installer with `brew` / `apt`
+- Built-in template store plus `v doctor` / `v sync`
 - Per-system adaptation: unavailable tools are skipped and reported
 - End-of-run summary: installed / skipped / unavailable tools
 
@@ -26,6 +27,10 @@ sh install.sh
 source ~/.zshrc
 
 hk
+v doctor
+v sync --dry-run --only tmux
+e
+fif tmux
 tmn
 y
 nvim .
@@ -42,6 +47,7 @@ nvim .
 - English guide: [README.en.md](README.en.md)
 - 中文指南: [README.zh-CN.md](README.zh-CN.md)
 - 日本語ガイド: [README.ja.md](README.ja.md)
+- Roadmap: [ROADMAP.md](ROADMAP.md)
 
 ## Notes
 

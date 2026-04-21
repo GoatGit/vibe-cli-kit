@@ -8,8 +8,9 @@ It installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `l
 
 - Install tools and configs in one pass
 - Set up `ghostty`, `tmux`, and `yazi` with sane defaults
-- Add helper commands like `hk`, `tmx`, `tmn`, `tma`, `tml`, `y`
+- Add helper commands like `hk`, `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `y`
 - Support `brew` and `apt`
+- Include a local template store with `v doctor` and `v sync`
 - Adapt by system and skip unavailable tools cleanly
 - Show installed / skipped / unavailable tools at the end
 
@@ -20,6 +21,10 @@ sh install.sh
 source ~/.zshrc
 
 hk
+v doctor
+v sync --dry-run --only tmux
+e
+fif tmux
 tmn
 y
 nvim .
@@ -106,6 +111,10 @@ sh install.sh --help
 - `~/.tmux.conf`
 - `~/.local/bin/terminal-cheatsheet`
 - `~/.local/bin/tmx`
+- `~/.local/bin/v`
+- `~/.local/bin/e`
+- `~/.local/bin/fif`
+- `~/.config/vibe-cli-kit/templates/`
 
 It also updates a managed block in `~/.zshrc`:
 
@@ -117,6 +126,11 @@ It also updates a managed block in `~/.zshrc`:
 ```sh
 source ~/.zshrc
 hk
+v doctor
+v sync --dry-run --only tmux
+e
+fif tmux
+p
 tmn
 y
 tmx dev
@@ -143,6 +157,19 @@ glow README.en.md
 - `tma`: attach/create a named session
 - `tml`: list sessions
 
+### Workflow Commands
+
+- `v doctor`: check tools, configs, scripts, and shell integration
+- `v sync --dry-run --only tmux`: preview config sync
+- `v sync --only yazi`: sync only Yazi configs
+- `v sync --mode backup`: back up files before overwriting
+- `e`: fuzzy-pick a file and open it in `nvim`
+- `e README.md`: open a specific file directly in `nvim`
+- `fif tmux`: search content and jump to the matching line
+- `fif`: start interactive content search
+- `p`: fuzzy-jump to a project directory
+- `p vibe-cli-kit`: prefer `zoxide` or project-path matching
+
 ### Yazi
 
 - `y` opens Yazi
@@ -160,6 +187,11 @@ glow README.en.md
 
 - `hk`
 - `hotkeys`
+- `v doctor`
+- `v sync --dry-run --only tmux`
+- `e`
+- `fif tmux`
+- `p`
 
 Both open the localized cheatsheet. Language is selected from:
 
@@ -176,12 +208,109 @@ terminal-cheatsheet --lang zh-CN
 terminal-cheatsheet --lang ja
 ```
 
+## Command Notes
+
+### `v doctor`
+
+Checks:
+
+- template store presence
+- deployed `ghostty` / `tmux` / `yazi` configs
+- installed helper scripts: `terminal-cheatsheet`, `tmx`, `v`, `e`, `fif`
+- managed block in `~/.zshrc`
+- availability of key CLI tools
+
+Output:
+
+- `ok`: healthy
+- `warn`: usable, but should be reviewed
+- `fail`: incomplete install or broken config
+
+### `v sync`
+
+Purpose:
+
+- resync configs from the local template store
+- does not reinstall tools
+- useful after template updates
+
+Common flags:
+
+- `--dry-run`
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+- `--mode overwrite|skip|backup`
+
+Examples:
+
+```sh
+v sync --dry-run --only tmux
+v sync --only shell
+v sync --only bin --mode backup
+v sync --mode skip
+```
+
+### `e`
+
+Purpose:
+
+- list files with `rg --files` or `fd`
+- select with `fzf`
+- open with `nvim`
+
+Examples:
+
+```sh
+e
+e README.en.md
+```
+
+### `fif`
+
+Purpose:
+
+- search content with `rg`
+- select a match with `fzf`
+- jump into `nvim` at the matching line
+
+Examples:
+
+```sh
+fif tmux
+fif install_yazi_plugins
+fif
+```
+
+### `p`
+
+Purpose:
+
+- jump to project directories quickly
+- direct `cd` if an explicit directory is given
+- otherwise try `zoxide query`
+- otherwise fuzzy-pick git repos from common project roots
+
+Default roots:
+
+- `$HOME/AI`
+- `$HOME/Code`
+- `$HOME/Projects`
+- `$HOME/workspace`
+- `$HOME/src`
+
+Override:
+
+```sh
+export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"
+```
+
 ## Notes
 
 - `hk` prefers `bat`; falls back to `less`
 - `vim` is aliased to `nvim`
 - `--only-config` skips package installation
 - `--dry-run` prints actions without changing the system
+- `v sync` uses `~/.config/vibe-cli-kit/templates/` as the local template store
+- `p` is a shell function because it needs to change the current shell directory
 - GUI app casks already present in `/Applications` are skipped on macOS
 
 ## Maintenance
@@ -196,3 +325,6 @@ Key templates live under `templates/`:
 - `templates/cheatsheets/`
 - `templates/bin/terminal-cheatsheet`
 - `templates/bin/tmx`
+- `templates/bin/v`
+- `templates/bin/e`
+- `templates/bin/fif`

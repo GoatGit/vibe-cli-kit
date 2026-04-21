@@ -28,6 +28,8 @@ fi
 
 TOOLS="ghostty yazi lsd bat tmux fzf fd atuin zoxide nvim ripgrep lazygit rich-cli glow fastfetch btop"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
+KIT_DIR="$CONFIG_DIR/vibe-cli-kit"
+TEMPLATE_STORE_DIR="$KIT_DIR/templates"
 LOCAL_BIN_DIR="$HOME/.local/bin"
 CHEATSHEET_DIR="$CONFIG_DIR/cheatsheets"
 SHELL_RC="$HOME/.zshrc"
@@ -418,6 +420,12 @@ install_configs() {
   ensure_dir "$CONFIG_DIR/yazi"
   ensure_dir "$CHEATSHEET_DIR"
   ensure_dir "$LOCAL_BIN_DIR"
+  ensure_dir "$TEMPLATE_STORE_DIR/bin"
+  ensure_dir "$TEMPLATE_STORE_DIR/cheatsheets"
+  ensure_dir "$TEMPLATE_STORE_DIR/ghostty"
+  ensure_dir "$TEMPLATE_STORE_DIR/shell"
+  ensure_dir "$TEMPLATE_STORE_DIR/tmux"
+  ensure_dir "$TEMPLATE_STORE_DIR/yazi"
 
   run_cmd cp "$TEMPLATE_DIR/ghostty/config" "$CONFIG_DIR/ghostty/config"
   run_cmd cp "$TEMPLATE_DIR/yazi/yazi.toml" "$CONFIG_DIR/yazi/yazi.toml"
@@ -425,10 +433,28 @@ install_configs() {
   run_cmd cp "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf"
   run_cmd cp "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   run_cmd cp "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx"
-  run_cmd chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx"
+  run_cmd cp "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v"
+  run_cmd cp "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e"
+  run_cmd cp "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif"
+  run_cmd chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
 
   for cheatsheet in "$TEMPLATE_DIR"/cheatsheets/*.md; do
     run_cmd cp "$cheatsheet" "$CHEATSHEET_DIR/"
+  done
+
+  run_cmd cp "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$TEMPLATE_STORE_DIR/bin/terminal-cheatsheet"
+  run_cmd cp "$TEMPLATE_DIR/bin/tmx" "$TEMPLATE_STORE_DIR/bin/tmx"
+  run_cmd cp "$TEMPLATE_DIR/bin/v" "$TEMPLATE_STORE_DIR/bin/v"
+  run_cmd cp "$TEMPLATE_DIR/bin/e" "$TEMPLATE_STORE_DIR/bin/e"
+  run_cmd cp "$TEMPLATE_DIR/bin/fif" "$TEMPLATE_STORE_DIR/bin/fif"
+  run_cmd cp "$TEMPLATE_DIR/ghostty/config" "$TEMPLATE_STORE_DIR/ghostty/config"
+  run_cmd cp "$TEMPLATE_DIR/shell/zshrc.snippet" "$TEMPLATE_STORE_DIR/shell/zshrc.snippet"
+  run_cmd cp "$TEMPLATE_DIR/tmux/tmux.conf" "$TEMPLATE_STORE_DIR/tmux/tmux.conf"
+  run_cmd cp "$TEMPLATE_DIR/yazi/yazi.toml" "$TEMPLATE_STORE_DIR/yazi/yazi.toml"
+  run_cmd cp "$TEMPLATE_DIR/yazi/package.toml" "$TEMPLATE_STORE_DIR/yazi/package.toml"
+
+  for cheatsheet in "$TEMPLATE_DIR"/cheatsheets/*.md; do
+    run_cmd cp "$cheatsheet" "$TEMPLATE_STORE_DIR/cheatsheets/"
   done
 }
 
