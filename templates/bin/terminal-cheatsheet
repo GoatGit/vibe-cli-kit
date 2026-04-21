@@ -39,6 +39,50 @@ detect_macos_lang() {
   normalize_lang "$apple_lang"
 }
 
+detect_macos_appearance() {
+  if ! command -v defaults >/dev/null 2>&1; then
+    return 1
+  fi
+
+  appearance="$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)"
+  [ -n "$appearance" ] || return 1
+  printf '%s\n' "$appearance"
+}
+
+detect_bat_theme() {
+  if [ -n "${VIBE_CLI_KIT_BAT_THEME:-}" ]; then
+    printf '%s\n' "$VIBE_CLI_KIT_BAT_THEME"
+    return 0
+  fi
+
+  if [ -n "${BAT_THEME:-}" ]; then
+    printf '%s\n' "$BAT_THEME"
+    return 0
+  fi
+
+  if [ "$(uname -s 2>/dev/null || true)" = "Darwin" ]; then
+    if [ "$(detect_macos_appearance 2>/dev/null || true)" = "Dark" ]; then
+      printf 'Nord\n'
+      return 0
+    fi
+    printf 'GitHub\n'
+    return 0
+  fi
+
+  case "${COLORFGBG:-}" in
+    *';0'|*';1'|*';2'|*';3'|*';4'|*';5'|*';6'|*';7')
+      printf 'GitHub\n'
+      return 0
+      ;;
+    *';8'|*';9'|*';10'|*';11'|*';12'|*';13'|*';14'|*';15')
+      printf 'Nord\n'
+      return 0
+      ;;
+  esac
+
+  printf 'Nord\n'
+}
+
 detect_lang() {
   if [ -n "${VIBE_CLI_KIT_LANG:-}" ]; then
     normalize_lang "$VIBE_CLI_KIT_LANG"
@@ -114,7 +158,8 @@ if [ ! -f "$DOC_FILE" ]; then
 fi
 
 if command -v bat >/dev/null 2>&1; then
-  exec bat --paging=always --language=markdown --style=plain,header "$DOC_FILE"
+  BAT_THEME_NAME="$(detect_bat_theme)"
+  exec bat --paging=always --language=markdown --style=plain,header --theme="$BAT_THEME_NAME" "$DOC_FILE"
 fi
 
 exec less "$DOC_FILE"

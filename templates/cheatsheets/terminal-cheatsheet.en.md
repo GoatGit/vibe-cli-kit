@@ -4,27 +4,19 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, r
 
 ## High Frequency
 
-```sh
-hk          # Open this cheatsheet
-v doctor    # Check tool/config health
-v backup --only tmux         # Back up tmux config only
-v diff --only tmux           # Compare tmux template and deployed config
-v update --dry-run --no-sync # Preview package updates without config sync
-v project                    # Detect project type and suggested commands
-v sync --dry-run --only tmux # Preview tmux config sync
-v session code               # Open the code workspace
-e           # Fuzzy-open a file in nvim
-fif tmux    # Search content and open the match
-p           # Jump to a project directory
-tmn         # Open or create a tmux session using the current directory name
-tmx dev     # Enter the dev session
-y           # Open Yazi
-rg foo      # Search text globally
-rg --files | fzf # Fuzzy-pick a file
-z foo       # Jump to a frequent directory
-lazygit     # Open Git TUI
-nvim .      # Open current directory
-```
+- `hk`: open this cheatsheet
+- `v doctor`: check tool/config health
+- `v project`: detect project type and suggested commands
+- `v session code`: open the `code` workspace
+- `e`: fuzzy-open a file in `nvim`
+- `fif tmux`: search content and open the match
+- `p`: jump to a project directory
+- `tmn`: open or create a tmux session using the current directory name
+- `y`: open Yazi
+- `rg foo`: search text globally
+- `z foo`: jump to a frequent directory
+- `lazygit`: open Git TUI
+- `nvim .`: open current directory
 
 ## Shell
 

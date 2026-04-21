@@ -4,27 +4,19 @@
 
 ## 高频命令
 
-```sh
-hk          # 打开这份速查表
-v doctor    # 检查工具和配置状态
-v backup --only tmux         # 只备份 tmux 配置
-v diff --only tmux           # 比较 tmux 模板和当前配置
-v update --dry-run --no-sync # 预览工具升级，不同步配置
-v project                    # 识别当前项目类型和建议命令
-v sync --dry-run --only tmux # 预览 tmux 配置同步
-v session code               # 打开 code 工作区
-e           # 模糊选文件并用 nvim 打开
-fif tmux    # 搜内容并直接跳到命中位置
-p           # 快速跳项目目录
-tmn         # 当前目录开/进 tmux session
-tmx dev     # 进入 dev session
-y           # 打开 Yazi
-rg foo      # 全局搜索文本
-rg --files | fzf # 模糊选文件
-z foo       # 快速跳目录
-lazygit     # 打开 Git TUI
-nvim .      # 打开当前目录
-```
+- `hk`：打开这份速查表
+- `v doctor`：检查工具和配置状态
+- `v project`：识别当前项目类型和建议命令
+- `v session code`：打开 `code` 工作区
+- `e`：模糊选文件并用 `nvim` 打开
+- `fif tmux`：搜内容并直接跳到命中位置
+- `p`：快速跳项目目录
+- `tmn`：当前目录开/进 tmux session
+- `y`：打开 Yazi
+- `rg foo`：全局搜索文本
+- `z foo`：快速跳目录
+- `lazygit`：打开 Git TUI
+- `nvim .`：打开当前目录
 
 ## Shell
 

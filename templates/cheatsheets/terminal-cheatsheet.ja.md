@@ -4,27 +4,19 @@
 
 ## High Frequency
 
-```sh
-hk          # このチートシートを開く
-v doctor    # ツールと設定の状態を確認
-v backup --only tmux         # tmux 設定だけバックアップ
-v diff --only tmux           # tmux テンプレートとの差分を確認
-v update --dry-run --no-sync # 設定同期なしで更新をプレビュー
-v project                    # プロジェクト種別と推奨コマンドを表示
-v sync --dry-run --only tmux # tmux 設定同期をプレビュー
-v session code               # code workspace を開く
-e           # ファイルをあいまい選択して nvim で開く
-fif tmux    # 内容検索してヒット位置へ移動
-p           # プロジェクトディレクトリへ移動
-tmn         # 現在のディレクトリ名で tmux セッションを作成/再利用
-tmx dev     # dev セッションへ入る
-y           # Yazi を開く
-rg foo      # 全文検索
-rg --files | fzf # ファイルをあいまい選択
-z foo       # よく使うディレクトリへ移動
-lazygit     # Git TUI を開く
-nvim .      # 現在のディレクトリを開く
-```
+- `hk`：このチートシートを開く
+- `v doctor`：ツールと設定の状態を確認
+- `v project`：プロジェクト種別と推奨コマンドを表示
+- `v session code`：`code` workspace を開く
+- `e`：ファイルをあいまい選択して `nvim` で開く
+- `fif tmux`：内容検索してヒット位置へ移動
+- `p`：プロジェクトディレクトリへ移動
+- `tmn`：現在のディレクトリ名で tmux セッションを作成/再利用
+- `y`：Yazi を開く
+- `rg foo`：全文検索
+- `z foo`：よく使うディレクトリへ移動
+- `lazygit`：Git TUI を開く
+- `nvim .`：現在のディレクトリを開く
 
 ## Shell
 
