@@ -51,7 +51,6 @@ nvim .
 - 英文：[README.en.md](README.en.md)
 - 简体中文：[README.zh-CN.md](README.zh-CN.md)
 - 日文：[README.ja.md](README.ja.md)
-- 路线图：[ROADMAP.md](ROADMAP.md)
 
 ## 支持范围
 

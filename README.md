@@ -58,7 +58,6 @@ nvim .                       # open current directory
 - English guide: [README.en.md](README.en.md)
 - 中文指南: [README.zh-CN.md](README.zh-CN.md)
 - 日本語ガイド: [README.ja.md](README.ja.md)
-- Roadmap: [ROADMAP.md](ROADMAP.md)
 
 ## Notes
 
