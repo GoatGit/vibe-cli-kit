@@ -1,16 +1,27 @@
 # vibe-cli-kit
 
-一个命令装好跨平台终端环境，支持 macOS、Linux、WSL。
+站在巨人的铲子上。
+
+一个面向 vibe-coding 的跨平台终端工作台，支持 macOS、Linux、WSL。
+
+这个项目的初衷很直接：
+
+- 不重复造轮子，优先站在成熟工具之上
+- 不做臃肿的 dotfiles 大一统框架
+- 把 `yazi`、`tmux`、`nvim`、`ripgrep`、`lazygit` 这类高频工具用一层薄薄的胶水串起来
+- 让“装完就能进入写代码状态”成为默认体验
 
 它会一次性安装并配置 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`，并写入 shell 快捷命令与本地帮助文档。
 
 ## 一眼看懂
 
 - 一次执行，工具和配置一起装
+- 保持轻量，不把项目做成配置垃圾场
+- 围绕终端编码工作流，而不是单纯堆工具
 - 默认配好 `ghostty`、`tmux`、`yazi`
 - 附带 `hk` `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y` 等常用命令
 - 同时支持 `brew` 和 `apt`
-- 内置本地模板库，支持 `v doctor` 和 `v sync`
+- 内置本地模板库，支持 `v doctor`、`v backup`、`v diff`、`v sync`、`v update`、`v project`、`v session`
 - 会按系统适配，不可用工具自动跳过并汇总
 - 安装结束会汇总：已安装 / 已跳过 / 不可用
 
@@ -22,7 +33,12 @@ source ~/.zshrc
 
 hk
 v doctor
+v backup --only tmux
+v diff --only tmux
+v update --dry-run --no-sync
+v project
 v sync --dry-run --only tmux
+v session code
 e
 fif tmux
 tmn
@@ -128,21 +144,26 @@ sh install.sh --help
 
 ```sh
 source ~/.zshrc
-hk
-v doctor
-v sync --dry-run --only tmux
-e
-fif tmux
-p
-tmn
-y
-tmx dev
-rg foo
-rg --files | fzf
-z foo
-lazygit
-nvim .
-glow README.zh-CN.md
+hk                           # 打开本地速查表
+v doctor                     # 检查工具和配置状态
+v backup --only tmux         # 只备份 tmux 配置
+v diff --only tmux           # 比较 tmux 模板和当前配置
+v update --dry-run --no-sync # 预览工具升级，不同步配置
+v project                    # 识别当前项目类型和建议命令
+v sync --dry-run --only tmux # 预览 tmux 配置同步
+v session code               # 打开 code 工作区
+e                            # 模糊选文件并用 nvim 打开
+fif tmux                     # 搜内容并直接跳到命中位置
+p                            # 快速跳项目目录
+tmn                          # 当前目录开/进 tmux session
+y                            # 打开 Yazi
+tmx dev                      # 进入 dev session
+rg foo                       # 全局搜索文本
+rg --files | fzf             # 模糊选文件
+z foo                        # 快速跳目录
+lazygit                      # 打开 Git TUI
+nvim .                       # 打开当前目录
+glow README.zh-CN.md         # 用 glow 阅读 README
 ```
 
 ## 默认工作流
@@ -163,7 +184,15 @@ glow README.zh-CN.md
 ### 工作流命令
 
 - `v doctor`：检查工具、配置、脚本、shell 集成是否正常
+- `v backup --only tmux`：备份当前配置
+- `v diff --only tmux`：比较当前配置和模板差异
+- `v update --dry-run --no-sync`：预览工具升级，不同步配置
+- `v project`：识别当前项目类型并输出建议命令
 - `v sync --dry-run --only tmux`：预览某类配置会怎么同步
+- `v session code`：创建或复用代码工作区
+- `v session backend`：创建或复用后端工作区
+- `v session frontend`：创建或复用前端工作区
+- `v session ai`：创建或复用 AI 工作区
 - `v sync --only yazi`：只同步 Yazi 配置
 - `v sync --mode backup`：同步前自动备份旧文件
 - `e`：模糊选文件并用 `nvim` 打开
@@ -191,7 +220,12 @@ glow README.zh-CN.md
 - `hk`
 - `hotkeys`
 - `v doctor`
+- `v backup --only tmux`
+- `v diff --only tmux`
+- `v update --dry-run --no-sync`
+- `v project`
 - `v sync --dry-run --only tmux`
+- `v session code`
 - `e`
 - `fif tmux`
 - `p`
@@ -244,6 +278,128 @@ v sync --dry-run --only tmux
 v sync --only shell
 v sync --only bin --mode backup
 v sync --mode skip
+```
+
+### `v diff`
+
+用途：
+
+- 比较本地模板库和当前已落地配置
+- 不修改任何文件
+- 适合在 `sync` 前先看差异
+
+常用参数：
+
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+
+例子：
+
+```sh
+v diff
+v diff --only tmux
+v diff --only shell
+```
+
+### `v backup`
+
+用途：
+
+- 把当前已落地配置备份到时间戳目录
+- 不依赖 git，不修改当前配置
+- 适合在 `sync` 或手工改配置前先留一份快照
+
+常用参数：
+
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+
+例子：
+
+```sh
+v backup
+v backup --only tmux
+v backup --only shell
+```
+
+### `v update`
+
+用途：
+
+- 按当前平台升级本项目相关工具
+- `brew` 下逐个升级 formula / cask
+- `apt` 下逐个执行 `--only-upgrade`
+- 默认升级完成后自动执行一次 `v sync`
+
+常用参数：
+
+- `--dry-run`：只预览升级动作
+- `--no-sync`：升级后不自动同步配置
+
+例子：
+
+```sh
+v update --dry-run --no-sync
+v update --dry-run
+v update
+```
+
+### `v session`
+
+用途：
+
+- 用预设布局创建 tmux 工作区
+- 已存在同名 session 时直接复用
+- 在 tmux 内会 `switch-client`，tmux 外会 `attach-session`
+
+支持布局：
+
+- `code`：yazi + shell + git
+- `backend`：server + tests + git
+- `frontend`：yazi + dev + git
+- `ai`：yazi + agent + shell
+
+命名规则：
+
+- `code` 默认用当前目录名
+- 其他布局默认用 `当前目录名-布局名`
+- 可用 `--name` 自定义，例如 `v session ai --name semibot-ai`
+
+例子：
+
+```sh
+v session code
+v session backend
+v session frontend
+v session ai
+v session ai --name vibe-ai
+```
+
+说明：
+
+- `code` 布局里左大 pane 默认启动 `yazi`
+- `frontend` 和 `ai` 现在也默认用左大 `yazi`
+- 在 `yazi` 中打开文本文件时，会在当前 pane 原地进入 `nvim`
+- 退出 `nvim` 后会回到 `yazi`
+- `backend` / `frontend` 会尝试根据项目类型自动填入默认 dev / test 命令
+
+### `v project`
+
+用途：
+
+- 识别当前项目类型
+- 输出推荐 runner
+- 输出推荐的 dev / test 命令
+
+当前识别规则：
+
+- `package.json` -> Node
+- `pyproject.toml` -> Python
+- `Cargo.toml` -> Rust
+- `go.mod` -> Go
+
+例子：
+
+```sh
+v project
 ```
 
 ### `e`
@@ -315,6 +471,10 @@ p ~/AI/vibe-cli-kit
 - `--only-config` 不安装工具
 - `--dry-run` 只打印动作，不真正写系统
 - `v sync` 使用 `~/.config/vibe-cli-kit/templates/` 作为本地模板库
+- `v backup` 默认写入 `~/.config/vibe-cli-kit/backups/<timestamp>/`
+- `v diff` 的 `shell` 模式只比较 `~/.zshrc` 里的受管区块
+- `v update` 会尽量逐项继续执行，单项失败不会中断整个升级流程
+- `v session` 默认在当前目录创建 tmux 工作区
 - `p` 会切换当前 shell 目录，所以它是 shell 函数，不是独立脚本
 - macOS 下如果 `/Applications` 已有 GUI App，会跳过对应 cask
 

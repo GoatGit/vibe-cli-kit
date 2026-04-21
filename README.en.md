@@ -1,16 +1,27 @@
 # vibe-cli-kit
 
-One-command terminal setup kit for macOS, Linux, and WSL.
+Build on the shoulders of giants, with a shovel in hand.
+
+A cross-platform terminal workbench for vibe-coding on macOS, Linux, and WSL.
+
+The project starts from a simple belief:
+
+- reuse strong existing tools instead of replacing them
+- keep the glue layer thin and practical
+- optimize for daily coding flow, not configuration collection
+- make “install and start coding” the default state
 
 It installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
 
 ## At a Glance
 
 - Install tools and configs in one pass
+- Stay light instead of becoming a giant dotfiles framework
+- Focus on coding flow, not on collecting tools for their own sake
 - Set up `ghostty`, `tmux`, and `yazi` with sane defaults
 - Add helper commands like `hk`, `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `y`
 - Support `brew` and `apt`
-- Include a local template store with `v doctor` and `v sync`
+- Include a local template store with `v doctor`, `v backup`, `v diff`, `v sync`, `v update`, `v project`, and `v session`
 - Adapt by system and skip unavailable tools cleanly
 - Show installed / skipped / unavailable tools at the end
 
@@ -22,7 +33,12 @@ source ~/.zshrc
 
 hk
 v doctor
+v backup --only tmux
+v diff --only tmux
+v update --dry-run --no-sync
+v project
 v sync --dry-run --only tmux
+v session code
 e
 fif tmux
 tmn
@@ -125,21 +141,26 @@ It also updates a managed block in `~/.zshrc`:
 
 ```sh
 source ~/.zshrc
-hk
-v doctor
-v sync --dry-run --only tmux
-e
-fif tmux
-p
-tmn
-y
-tmx dev
-rg foo
-rg --files | fzf
-z foo
-lazygit
-nvim .
-glow README.en.md
+hk                           # open the local cheatsheet
+v doctor                     # check tools and config status
+v backup --only tmux         # back up tmux config only
+v diff --only tmux           # compare tmux template and deployed config
+v update --dry-run --no-sync # preview package updates without config sync
+v project                    # detect project type and suggested commands
+v sync --dry-run --only tmux # preview tmux config sync
+v session code               # open the code workspace
+e                            # fuzzy-pick a file and open with nvim
+fif tmux                     # search content and jump to the hit
+p                            # jump to a project directory
+tmn                          # create/enter tmux session for current dir
+y                            # open Yazi
+tmx dev                      # enter the dev session
+rg foo                       # search text globally
+rg --files | fzf             # fuzzy-pick a file
+z foo                        # jump to a frequent directory
+lazygit                      # open Git TUI
+nvim .                       # open current directory
+glow README.en.md            # read the README with glow
 ```
 
 ## Default Workflow
@@ -160,7 +181,15 @@ glow README.en.md
 ### Workflow Commands
 
 - `v doctor`: check tools, configs, scripts, and shell integration
+- `v backup --only tmux`: back up current deployed configs
+- `v diff --only tmux`: compare deployed config with the template store
+- `v update --dry-run --no-sync`: preview tool updates only
+- `v project`: detect the current project type and print suggested commands
 - `v sync --dry-run --only tmux`: preview config sync
+- `v session code`: create or reuse a coding workspace
+- `v session backend`: create or reuse a backend workspace
+- `v session frontend`: create or reuse a frontend workspace
+- `v session ai`: create or reuse an AI workspace
 - `v sync --only yazi`: sync only Yazi configs
 - `v sync --mode backup`: back up files before overwriting
 - `e`: fuzzy-pick a file and open it in `nvim`
@@ -188,7 +217,12 @@ glow README.en.md
 - `hk`
 - `hotkeys`
 - `v doctor`
+- `v backup --only tmux`
+- `v diff --only tmux`
+- `v update --dry-run --no-sync`
+- `v project`
 - `v sync --dry-run --only tmux`
+- `v session code`
 - `e`
 - `fif tmux`
 - `p`
@@ -247,6 +281,128 @@ v sync --dry-run --only tmux
 v sync --only shell
 v sync --only bin --mode backup
 v sync --mode skip
+```
+
+### `v diff`
+
+Purpose:
+
+- compare the local template store with deployed files
+- make no file changes
+- useful before running `sync`
+
+Common flags:
+
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+
+Examples:
+
+```sh
+v diff
+v diff --only tmux
+v diff --only shell
+```
+
+### `v backup`
+
+Purpose:
+
+- save deployed configs into a timestamped backup directory
+- avoid touching the current files
+- useful before `sync` or manual edits
+
+Common flags:
+
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+
+Examples:
+
+```sh
+v backup
+v backup --only tmux
+v backup --only shell
+```
+
+### `v update`
+
+Purpose:
+
+- upgrade project-related tools for the current platform
+- upgrade brew formulas / casks one by one
+- run `apt-get install --only-upgrade` one by one on apt systems
+- resync configs by default after tool updates
+
+Common flags:
+
+- `--dry-run`
+- `--no-sync`
+
+Examples:
+
+```sh
+v update --dry-run --no-sync
+v update --dry-run
+v update
+```
+
+### `v session`
+
+Purpose:
+
+- create tmux workspaces from preset layouts
+- reuse an existing session if the target name already exists
+- use `switch-client` inside tmux and `attach-session` outside tmux
+
+Layouts:
+
+- `code`: yazi + shell + git
+- `backend`: server + tests + git
+- `frontend`: yazi + dev + git
+- `ai`: yazi + agent + shell
+
+Naming:
+
+- `code` defaults to the current directory name
+- other layouts default to `current-directory-layout`
+- use `--name` to override, for example `v session ai --name semibot-ai`
+
+Examples:
+
+```sh
+v session code
+v session backend
+v session frontend
+v session ai
+v session ai --name vibe-ai
+```
+
+Notes:
+
+- the `code` layout starts `yazi` in the large left pane
+- the `frontend` and `ai` layouts also use `yazi` in the large left pane
+- opening a text file from `yazi` opens `nvim` in the same pane
+- leaving `nvim` returns you to `yazi`
+- `backend` / `frontend` try to preload default dev / test commands from the current project type
+
+### `v project`
+
+Purpose:
+
+- detect the current project type
+- print the preferred runner
+- print suggested dev / test commands
+
+Current detection:
+
+- `package.json` -> Node
+- `pyproject.toml` -> Python
+- `Cargo.toml` -> Rust
+- `go.mod` -> Go
+
+Example:
+
+```sh
+v project
 ```
 
 ### `e`
@@ -310,6 +466,10 @@ export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"
 - `--only-config` skips package installation
 - `--dry-run` prints actions without changing the system
 - `v sync` uses `~/.config/vibe-cli-kit/templates/` as the local template store
+- `v backup` writes to `~/.config/vibe-cli-kit/backups/<timestamp>/`
+- `v diff` compares only the managed block when used with `--only shell`
+- `v update` keeps going item by item so one failed upgrade does not stop the whole run
+- `v session` creates tmux workspaces rooted at the current directory
 - `p` is a shell function because it needs to change the current shell directory
 - GUI app casks already present in `/Applications` are skipped on macOS
 

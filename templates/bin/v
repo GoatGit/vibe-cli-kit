@@ -13,6 +13,15 @@ END_MARKER="# <<< vibe-cli-kit <<<"
 SYNC_TARGET=all
 SYNC_MODE=overwrite
 SYNC_DRY_RUN=0
+DIFF_TARGET=all
+UPDATE_DRY_RUN=0
+UPDATE_SYNC=1
+BACKUP_TARGET=all
+
+UPDATED_COUNT=0
+UPDATED_ITEMS=
+SKIPPED_ITEMS=
+FAILED_ITEMS=
 
 OK_COUNT=0
 WARN_COUNT=0
@@ -22,8 +31,97 @@ usage() {
   cat <<'EOF'
 Usage:
   v doctor
+  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
+  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
   v sync [--dry-run] [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell] [--mode overwrite|skip|backup]
+  v update [--dry-run] [--no-sync]
+  v session [code|backend|frontend|ai] [--name SESSION]
+  v project
   v --help
+EOF
+}
+
+session_help() {
+  cat <<'EOF'
+Usage:
+  v session [code|backend|frontend|ai] [--name SESSION]
+
+Layouts:
+  code
+  +---------------------------+-------------+
+  | yazi                      | shell       |
+  |                           +-------------+
+  |                           | git         |
+  +---------------------------+-------------+
+
+  backend
+  +---------------------------+-------------+
+  | server                    | tests       |
+  |                           +-------------+
+  |                           | git         |
+  +---------------------------+-------------+
+
+  frontend
+  +---------------------------+-------------+
+  | yazi                      | dev         |
+  |                           +-------------+
+  |                           | git         |
+  +---------------------------+-------------+
+
+  ai
+  +---------------------------+-------------+
+  | yazi                      | agent       |
+  |                           +-------------+
+  |                           | shell       |
+  +---------------------------+-------------+
+
+Naming:
+  code      -> current-directory
+  others    -> current-directory-layout
+  override  -> --name SESSION
+
+Examples:
+  v session code
+  v session backend
+  v session frontend
+  v session ai
+  v session ai --name vibe-ai
+EOF
+}
+
+project_help() {
+  cat <<'EOF'
+Usage:
+  v project
+
+Output:
+  - detected project type
+  - preferred package runner
+  - suggested dev / test commands
+EOF
+}
+
+diff_help() {
+  cat <<'EOF'
+Usage:
+  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
+
+Behavior:
+  - compares the local template store with deployed files
+  - shell mode compares only the managed vibe-cli-kit block in ~/.zshrc
+  - exits 0 when no differences are found
+EOF
+}
+
+backup_help() {
+  cat <<'EOF'
+Usage:
+  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
+
+Behavior:
+  - backs up deployed files into ~/.config/vibe-cli-kit/backups/<timestamp>/
+  - shell mode backs up only the managed vibe-cli-kit block from ~/.zshrc
+  - never overwrites an existing backup directory
 EOF
 }
 
@@ -44,6 +142,18 @@ report_fail() {
 
 report_skip() {
   printf 'skip  %s\n' "$*"
+}
+
+append_line() {
+  list_name="$1"
+  item="$2"
+  eval "current_value=\${$list_name:-}"
+  if [ -z "$current_value" ]; then
+    eval "$list_name=\"\$item\""
+  else
+    eval "$list_name=\"\$current_value
+\$item\""
+  fi
 }
 
 check_file() {
@@ -303,6 +413,904 @@ sync_configs() {
   sync_target "$SYNC_TARGET"
 }
 
+ensure_template_store() {
+  if [ ! -d "$TEMPLATE_DIR" ]; then
+    printf 'fail  template store missing: %s\n' "$TEMPLATE_DIR" >&2
+    printf 'hint  re-run: sh install.sh --only-config\n' >&2
+    exit 1
+  fi
+}
+
+backup_root_dir() {
+  printf '%s/backups/%s\n' "$KIT_DIR" "$(date +%Y%m%d-%H%M%S)"
+}
+
+backup_copy_file() {
+  label="$1"
+  src="$2"
+  dest="$3"
+  if [ ! -f "$src" ]; then
+    printf 'skip  %s missing: %s\n' "$label" "$src"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  cp "$src" "$dest"
+  printf 'ok    backup %s -> %s\n' "$label" "$dest"
+}
+
+backup_target() {
+  target="$1"
+  root="$2"
+  case "$target" in
+    ghostty)
+      backup_copy_file ghostty "$CONFIG_DIR/ghostty/config" "$root/ghostty/config"
+      ;;
+    yazi)
+      backup_copy_file yazi.toml "$CONFIG_DIR/yazi/yazi.toml" "$root/yazi/yazi.toml"
+      backup_copy_file yazi.package "$CONFIG_DIR/yazi/package.toml" "$root/yazi/package.toml"
+      ;;
+    tmux)
+      backup_copy_file tmux "$HOME/.tmux.conf" "$root/tmux/tmux.conf"
+      ;;
+    cheatsheets)
+      backup_copy_file cheatsheet.en "$CHEATSHEET_DIR/terminal-cheatsheet.en.md" "$root/cheatsheets/terminal-cheatsheet.en.md"
+      backup_copy_file cheatsheet.zh-CN "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md" "$root/cheatsheets/terminal-cheatsheet.zh-CN.md"
+      backup_copy_file cheatsheet.ja "$CHEATSHEET_DIR/terminal-cheatsheet.ja.md" "$root/cheatsheets/terminal-cheatsheet.ja.md"
+      ;;
+    bin)
+      backup_copy_file bin.terminal-cheatsheet "$LOCAL_BIN_DIR/terminal-cheatsheet" "$root/bin/terminal-cheatsheet"
+      backup_copy_file bin.tmx "$LOCAL_BIN_DIR/tmx" "$root/bin/tmx"
+      backup_copy_file bin.v "$LOCAL_BIN_DIR/v" "$root/bin/v"
+      backup_copy_file bin.e "$LOCAL_BIN_DIR/e" "$root/bin/e"
+      backup_copy_file bin.fif "$LOCAL_BIN_DIR/fif" "$root/bin/fif"
+      ;;
+    shell)
+      tmp_file="$(mktemp)"
+      extract_managed_block "$SHELL_RC" "$tmp_file"
+      if [ -s "$tmp_file" ]; then
+        mkdir -p "$root/shell"
+        cp "$tmp_file" "$root/shell/zshrc.snippet"
+        printf 'ok    backup shell.managed-block -> %s\n' "$root/shell/zshrc.snippet"
+      else
+        printf 'skip  shell.managed-block missing in %s\n' "$SHELL_RC"
+      fi
+      rm -f "$tmp_file"
+      ;;
+    all)
+      backup_target ghostty "$root"
+      backup_target yazi "$root"
+      backup_target tmux "$root"
+      backup_target cheatsheets "$root"
+      backup_target bin "$root"
+      backup_target shell "$root"
+      ;;
+    *)
+      backup_help >&2
+      exit 1
+      ;;
+  esac
+}
+
+parse_backup_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --only)
+        shift
+        [ "$#" -gt 0 ] || {
+          backup_help >&2
+          exit 1
+        }
+        BACKUP_TARGET="$1"
+        ;;
+      -h|--help|help)
+        backup_help
+        exit 0
+        ;;
+      *)
+        backup_help >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+backup_configs() {
+  parse_backup_args "$@"
+  root="$(backup_root_dir)"
+  mkdir -p "$root"
+  printf 'vibe-cli-kit backup\n'
+  printf 'target=%s\n' "$BACKUP_TARGET"
+  printf 'dir=%s\n\n' "$root"
+  backup_target "$BACKUP_TARGET" "$root"
+}
+
+extract_managed_block() {
+  src_file="$1"
+  out_file="$2"
+  if [ ! -f "$src_file" ]; then
+    : > "$out_file"
+    return 0
+  fi
+
+  awk -v start="$START_MARKER" -v end="$END_MARKER" '
+    $0 == start { capture=1; next }
+    $0 == end { capture=0; exit }
+    capture == 1 { print }
+  ' "$src_file" > "$out_file"
+}
+
+run_diff_pair() {
+  label="$1"
+  left="$2"
+  right="$3"
+  if [ ! -f "$left" ] && [ ! -f "$right" ]; then
+    printf 'skip  %s (both missing)\n' "$label"
+    return 0
+  fi
+  if [ ! -f "$left" ]; then
+    printf 'fail  %s missing template: %s\n' "$label" "$left" >&2
+    return 1
+  fi
+  if [ ! -f "$right" ]; then
+    printf 'warn  %s missing deployed file: %s\n' "$label" "$right"
+    return 1
+  fi
+  if diff -u "$left" "$right"; then
+    printf 'ok    %s\n' "$label"
+    return 0
+  fi
+  printf 'warn  diff found: %s\n' "$label"
+  return 1
+}
+
+diff_target() {
+  target="$1"
+  diff_found=0
+
+  case "$target" in
+    ghostty)
+      run_diff_pair "ghostty" "$TEMPLATE_DIR/ghostty/config" "$CONFIG_DIR/ghostty/config" || diff_found=1
+      ;;
+    yazi)
+      run_diff_pair "yazi.toml" "$TEMPLATE_DIR/yazi/yazi.toml" "$CONFIG_DIR/yazi/yazi.toml" || diff_found=1
+      run_diff_pair "yazi.package" "$TEMPLATE_DIR/yazi/package.toml" "$CONFIG_DIR/yazi/package.toml" || diff_found=1
+      ;;
+    tmux)
+      run_diff_pair "tmux" "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf" || diff_found=1
+      ;;
+    cheatsheets)
+      run_diff_pair "cheatsheet.en" "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.en.md" "$CHEATSHEET_DIR/terminal-cheatsheet.en.md" || diff_found=1
+      run_diff_pair "cheatsheet.zh-CN" "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.zh-CN.md" "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md" || diff_found=1
+      run_diff_pair "cheatsheet.ja" "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.ja.md" "$CHEATSHEET_DIR/terminal-cheatsheet.ja.md" || diff_found=1
+      ;;
+    bin)
+      run_diff_pair "bin.terminal-cheatsheet" "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet" || diff_found=1
+      run_diff_pair "bin.tmx" "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx" || diff_found=1
+      run_diff_pair "bin.v" "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v" || diff_found=1
+      run_diff_pair "bin.e" "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e" || diff_found=1
+      run_diff_pair "bin.fif" "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif" || diff_found=1
+      ;;
+    shell)
+      tmp_left="$(mktemp)"
+      tmp_right="$(mktemp)"
+      cp "$TEMPLATE_DIR/shell/zshrc.snippet" "$tmp_left"
+      extract_managed_block "$SHELL_RC" "$tmp_right"
+      run_diff_pair "shell.managed-block" "$tmp_left" "$tmp_right" || diff_found=1
+      rm -f "$tmp_left" "$tmp_right"
+      ;;
+    all)
+      diff_target ghostty || diff_found=1
+      diff_target yazi || diff_found=1
+      diff_target tmux || diff_found=1
+      diff_target cheatsheets || diff_found=1
+      diff_target bin || diff_found=1
+      diff_target shell || diff_found=1
+      ;;
+    *)
+      usage >&2
+      exit 1
+      ;;
+  esac
+
+  return "$diff_found"
+}
+
+parse_diff_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --only)
+        shift
+        [ "$#" -gt 0 ] || {
+          diff_help >&2
+          exit 1
+        }
+        DIFF_TARGET="$1"
+        ;;
+      -h|--help|help)
+        diff_help
+        exit 0
+        ;;
+      *)
+        diff_help >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+diff_configs() {
+  parse_diff_args "$@"
+  ensure_template_store
+  printf 'vibe-cli-kit diff\n'
+  printf 'target=%s\n\n' "$DIFF_TARGET"
+  diff_target "$DIFF_TARGET"
+}
+
+reset_update_state() {
+  UPDATED_COUNT=0
+  UPDATED_ITEMS=
+  SKIPPED_ITEMS=
+  FAILED_ITEMS=
+}
+
+detect_platform() {
+  case "$(uname -s)" in
+    Darwin) printf 'macos\n' ;;
+    Linux)
+      if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; then
+        printf 'wsl\n'
+      else
+        printf 'linux\n'
+      fi
+      ;;
+    *)
+      printf 'unknown\n'
+      ;;
+  esac
+}
+
+detect_package_manager() {
+  platform="$(detect_platform)"
+  case "$platform" in
+    macos)
+      if command -v brew >/dev/null 2>&1; then
+        printf 'brew\n'
+      elif command -v apt-get >/dev/null 2>&1; then
+        printf 'apt\n'
+      else
+        printf 'unknown\n'
+      fi
+      ;;
+    linux|wsl)
+      if command -v apt-get >/dev/null 2>&1; then
+        printf 'apt\n'
+      elif command -v brew >/dev/null 2>&1; then
+        printf 'brew\n'
+      else
+        printf 'unknown\n'
+      fi
+      ;;
+    *)
+      printf 'unknown\n'
+      ;;
+  esac
+}
+
+run_update_cmd() {
+  if [ "$UPDATE_DRY_RUN" -eq 1 ]; then
+    printf 'dry   %s\n' "$*"
+    return 0
+  fi
+  "$@"
+}
+
+run_update_root_cmd() {
+  if [ "$UPDATE_DRY_RUN" -eq 1 ]; then
+    printf 'dry   %s\n' "$*"
+    return 0
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    printf 'fail  need root privileges: %s\n' "$*" >&2
+    return 1
+  fi
+}
+
+mark_updated() {
+  UPDATED_COUNT=$((UPDATED_COUNT + 1))
+  if [ "$UPDATE_DRY_RUN" -eq 1 ]; then
+    append_line UPDATED_ITEMS "$1 (planned)"
+    printf 'plan  update %s\n' "$1"
+  else
+    append_line UPDATED_ITEMS "$1"
+    printf 'ok    updated %s\n' "$1"
+  fi
+}
+
+mark_skipped() {
+  append_line SKIPPED_ITEMS "$1"
+  printf 'skip  %s\n' "$1"
+}
+
+mark_failed() {
+  append_line FAILED_ITEMS "$1"
+  printf 'warn  failed %s\n' "$1"
+}
+
+print_update_block() {
+  title="$1"
+  values="$2"
+  [ -n "$values" ] || return 0
+  printf '\n%s:\n' "$title"
+  OLD_IFS=$IFS
+  IFS='
+'
+  for item in $values; do
+    [ -n "$item" ] && printf '  - %s\n' "$item"
+  done
+  IFS=$OLD_IFS
+}
+
+brew_update_formula() {
+  formula="$1"
+  if ! brew list --formula "$formula" >/dev/null 2>&1; then
+    mark_skipped "$formula"
+    return 0
+  fi
+  if run_update_cmd brew upgrade "$formula"; then
+    mark_updated "$formula"
+  else
+    mark_failed "$formula"
+  fi
+}
+
+brew_update_cask() {
+  cask="$1"
+  if brew list --cask "$cask" >/dev/null 2>&1 || [ -d "/Applications/Ghostty.app" ]; then
+    if run_update_cmd brew upgrade --cask "$cask"; then
+      mark_updated "$cask"
+    else
+      mark_failed "$cask"
+    fi
+  else
+    mark_skipped "$cask"
+  fi
+}
+
+apt_update_package() {
+  pkg="$1"
+  if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+    mark_skipped "$pkg"
+    return 0
+  fi
+  if run_update_root_cmd apt-get install --only-upgrade -y "$pkg"; then
+    mark_updated "$pkg"
+  else
+    mark_failed "$pkg"
+  fi
+}
+
+update_python_cli() {
+  package="$1"
+  if command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q "$package"; then
+    if run_update_cmd pipx upgrade "$package"; then
+      mark_updated "$package"
+    else
+      mark_failed "$package"
+    fi
+    return 0
+  fi
+
+  if command -v python3 >/dev/null 2>&1 && python3 -m pip --version >/dev/null 2>&1; then
+    if run_update_cmd python3 -m pip install --upgrade --user "$package"; then
+      mark_updated "$package"
+    else
+      mark_failed "$package"
+    fi
+    return 0
+  fi
+
+  mark_skipped "$package"
+}
+
+update_brew() {
+  printf 'vibe-cli-kit update\n'
+  printf 'package-manager=brew dry-run=%s sync=%s\n\n' "$UPDATE_DRY_RUN" "$UPDATE_SYNC"
+
+  if run_update_cmd brew update; then
+    if [ "$UPDATE_DRY_RUN" -eq 1 ]; then
+      printf 'plan  refresh brew metadata\n'
+    else
+      printf 'ok    refreshed brew metadata\n'
+    fi
+  else
+    mark_failed "brew metadata"
+  fi
+
+  if [ "$(detect_platform)" = "macos" ]; then
+    brew_update_cask ghostty
+  else
+    mark_skipped "ghostty"
+  fi
+
+  brew_update_formula yazi
+  brew_update_formula lsd
+  brew_update_formula bat
+  brew_update_formula tmux
+  brew_update_formula fzf
+  brew_update_formula fd
+  brew_update_formula atuin
+  brew_update_formula zoxide
+  brew_update_formula neovim
+  brew_update_formula ripgrep
+  brew_update_formula lazygit
+  brew_update_formula rich-cli
+  brew_update_formula glow
+  brew_update_formula fastfetch
+  brew_update_formula btop
+}
+
+update_apt() {
+  printf 'vibe-cli-kit update\n'
+  printf 'package-manager=apt dry-run=%s sync=%s\n\n' "$UPDATE_DRY_RUN" "$UPDATE_SYNC"
+
+  if run_update_root_cmd apt-get update; then
+    if [ "$UPDATE_DRY_RUN" -eq 1 ]; then
+      printf 'plan  refresh apt metadata\n'
+    else
+      printf 'ok    refreshed apt metadata\n'
+    fi
+  else
+    mark_failed "apt metadata"
+  fi
+
+  mark_skipped "ghostty"
+  apt_update_package yazi
+  apt_update_package lsd
+  apt_update_package bat
+  apt_update_package fd-find
+  apt_update_package tmux
+  apt_update_package fzf
+  apt_update_package atuin
+  apt_update_package zoxide
+  apt_update_package neovim
+  apt_update_package ripgrep
+  apt_update_package lazygit
+  apt_update_package glow
+  apt_update_package fastfetch
+  apt_update_package btop
+  update_python_cli rich-cli
+}
+
+parse_update_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        UPDATE_DRY_RUN=1
+        ;;
+      --no-sync)
+        UPDATE_SYNC=0
+        ;;
+      *)
+        usage >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+update_tools() {
+  parse_update_args "$@"
+  reset_update_state
+  manager="$(detect_package_manager)"
+
+  case "$manager" in
+    brew) update_brew ;;
+    apt) update_apt ;;
+    *)
+      printf 'fail  unsupported package manager\n' >&2
+      exit 1
+      ;;
+  esac
+
+  if [ "$UPDATE_SYNC" -eq 1 ]; then
+    printf '\n'
+    old_sync_dry_run="$SYNC_DRY_RUN"
+    old_sync_target="$SYNC_TARGET"
+    old_sync_mode="$SYNC_MODE"
+    SYNC_DRY_RUN="$UPDATE_DRY_RUN"
+    SYNC_TARGET=all
+    SYNC_MODE=overwrite
+    sync_configs
+    SYNC_DRY_RUN="$old_sync_dry_run"
+    SYNC_TARGET="$old_sync_target"
+    SYNC_MODE="$old_sync_mode"
+  fi
+
+  print_update_block "Updated" "$UPDATED_ITEMS"
+  print_update_block "Skipped" "$SKIPPED_ITEMS"
+  print_update_block "Failed" "$FAILED_ITEMS"
+}
+
+editor_command() {
+  if command -v nvim >/dev/null 2>&1; then
+    printf 'nvim .\n'
+  else
+    printf '%s\n' "${SHELL:-/bin/sh}"
+  fi
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+detect_project_type() {
+  if [ -f package.json ]; then
+    printf 'node\n'
+  elif [ -f pyproject.toml ]; then
+    printf 'python\n'
+  elif [ -f Cargo.toml ]; then
+    printf 'rust\n'
+  elif [ -f go.mod ]; then
+    printf 'go\n'
+  else
+    printf 'generic\n'
+  fi
+}
+
+detect_node_runner() {
+  if [ -f pnpm-lock.yaml ] && command_exists pnpm; then
+    printf 'pnpm\n'
+  elif [ -f yarn.lock ] && command_exists yarn; then
+    printf 'yarn\n'
+  elif [ -f package-lock.json ] && command_exists npm; then
+    printf 'npm\n'
+  elif command_exists pnpm; then
+    printf 'pnpm\n'
+  elif command_exists npm; then
+    printf 'npm\n'
+  elif command_exists yarn; then
+    printf 'yarn\n'
+  else
+    printf 'node\n'
+  fi
+}
+
+package_has_script() {
+  script_name="$1"
+  [ -f package.json ] || return 1
+  grep -Eq "\"$script_name\"[[:space:]]*:" package.json
+}
+
+node_script_command() {
+  script_name="$1"
+  runner="$(detect_node_runner)"
+  case "$runner" in
+    pnpm|yarn)
+      printf '%s %s\n' "$runner" "$script_name"
+      ;;
+    npm)
+      printf 'npm run %s\n' "$script_name"
+      ;;
+    *)
+      printf '\n'
+      ;;
+  esac
+}
+
+project_dev_command() {
+  project_type="$(detect_project_type)"
+  case "$project_type" in
+    node)
+      if package_has_script dev; then
+        node_script_command dev
+      elif package_has_script start; then
+        node_script_command start
+      else
+        printf '\n'
+      fi
+      ;;
+    python)
+      if [ -f manage.py ]; then
+        if command_exists uv; then
+          printf 'uv run python manage.py runserver\n'
+        else
+          printf 'python3 manage.py runserver\n'
+        fi
+      elif [ -f app.py ]; then
+        if command_exists uv; then
+          printf 'uv run python app.py\n'
+        else
+          printf 'python3 app.py\n'
+        fi
+      else
+        printf '\n'
+      fi
+      ;;
+    rust)
+      printf 'cargo run\n'
+      ;;
+    go)
+      printf 'go run .\n'
+      ;;
+    *)
+      printf '\n'
+      ;;
+  esac
+}
+
+project_test_command() {
+  project_type="$(detect_project_type)"
+  case "$project_type" in
+    node)
+      if package_has_script test; then
+        node_script_command test
+      else
+        printf '\n'
+      fi
+      ;;
+    python)
+      if command_exists uv; then
+        printf 'uv run pytest\n'
+      elif command_exists pytest; then
+        printf 'pytest\n'
+      else
+        printf '\n'
+      fi
+      ;;
+    rust)
+      printf 'cargo test\n'
+      ;;
+    go)
+      printf 'go test ./...\n'
+      ;;
+    *)
+      printf '\n'
+      ;;
+  esac
+}
+
+project_runner_label() {
+  project_type="$(detect_project_type)"
+  case "$project_type" in
+    node)
+      detect_node_runner
+      ;;
+    python)
+      if command_exists uv; then
+        printf 'uv\n'
+      elif command_exists python3; then
+        printf 'python3\n'
+      else
+        printf 'python\n'
+      fi
+      ;;
+    rust)
+      printf 'cargo\n'
+      ;;
+    go)
+      printf 'go\n'
+      ;;
+    *)
+      printf 'generic\n'
+      ;;
+  esac
+}
+
+project_command() {
+  if [ "$#" -gt 0 ]; then
+    case "$1" in
+      -h|--help|help)
+        project_help
+        exit 0
+        ;;
+      *)
+        usage >&2
+        exit 1
+        ;;
+    esac
+  fi
+
+  project_type="$(detect_project_type)"
+  runner="$(project_runner_label)"
+  dev_cmd="$(project_dev_command)"
+  test_cmd="$(project_test_command)"
+
+  printf 'vibe-cli-kit project\n\n'
+  printf 'type: %s\n' "$project_type"
+  printf 'runner: %s\n' "$runner"
+  if [ -n "$dev_cmd" ]; then
+    printf 'dev: %s\n' "$dev_cmd"
+  else
+    printf 'dev: (no default suggestion)\n'
+  fi
+  if [ -n "$test_cmd" ]; then
+    printf 'test: %s\n' "$test_cmd"
+  else
+    printf 'test: (no default suggestion)\n'
+  fi
+}
+
+git_command() {
+  if command -v lazygit >/dev/null 2>&1; then
+    printf 'lazygit\n'
+  else
+    printf '%s\n' "${SHELL:-/bin/sh}"
+  fi
+}
+
+agent_command() {
+  if command -v codex >/dev/null 2>&1; then
+    printf 'codex\n'
+  elif command -v claude >/dev/null 2>&1; then
+    printf 'claude\n'
+  elif command -v aider >/dev/null 2>&1; then
+    printf 'aider\n'
+  else
+    printf '%s\n' "${SHELL:-/bin/sh}"
+  fi
+}
+
+sanitize_session_name() {
+  value="$1"
+  value=$(printf '%s' "$value" | tr '/ :@.' '-' | tr -cd '[:alnum:]_-')
+  [ -n "$value" ] || value="main"
+  printf '%s\n' "$value"
+}
+
+default_session_name() {
+  layout="$1"
+  base="${PWD##*/}"
+  [ -n "$base" ] || base="main"
+  case "$layout" in
+    code) sanitize_session_name "$base" ;;
+    *) sanitize_session_name "$base-$layout" ;;
+  esac
+}
+
+tmux_attach_session() {
+  session_name="$1"
+  if [ -n "${TMUX:-}" ]; then
+    exec tmux switch-client -t "$session_name"
+  else
+    exec tmux attach-session -t "$session_name"
+  fi
+}
+
+tmux_send_if_command() {
+  pane_target="$1"
+  command_text="$2"
+  [ -n "$command_text" ] || return 0
+  tmux send-keys -t "$pane_target" "$command_text" C-m
+}
+
+create_code_session() {
+  session_name="$1"
+  tmux new-session -d -s "$session_name" -c "$PWD" -n code
+  tmux split-window -h -p 32 -t "$session_name:1" -c "$PWD"
+  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
+  tmux select-layout -t "$session_name:1" main-vertical
+  tmux select-pane -t "$session_name:1.1" -T browser
+  tmux select-pane -t "$session_name:1.2" -T shell
+  tmux select-pane -t "$session_name:1.3" -T git
+  tmux_send_if_command "$session_name:1.1" "yazi"
+  tmux_send_if_command "$session_name:1.3" "$(git_command)"
+}
+
+create_backend_session() {
+  session_name="$1"
+  dev_cmd="$(project_dev_command)"
+  test_cmd="$(project_test_command)"
+  tmux new-session -d -s "$session_name" -c "$PWD" -n backend
+  tmux split-window -h -p 35 -t "$session_name:1" -c "$PWD"
+  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
+  tmux select-layout -t "$session_name:1" main-vertical
+  tmux select-pane -t "$session_name:1.1" -T server
+  tmux select-pane -t "$session_name:1.2" -T tests
+  tmux select-pane -t "$session_name:1.3" -T git
+  tmux_send_if_command "$session_name:1.1" "$dev_cmd"
+  tmux_send_if_command "$session_name:1.2" "$test_cmd"
+  tmux_send_if_command "$session_name:1.3" "$(git_command)"
+}
+
+create_frontend_session() {
+  session_name="$1"
+  dev_cmd="$(project_dev_command)"
+  tmux new-session -d -s "$session_name" -c "$PWD" -n frontend
+  tmux split-window -h -p 35 -t "$session_name:1" -c "$PWD"
+  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
+  tmux select-layout -t "$session_name:1" main-vertical
+  tmux select-pane -t "$session_name:1.1" -T browser
+  tmux select-pane -t "$session_name:1.2" -T dev
+  tmux select-pane -t "$session_name:1.3" -T git
+  tmux_send_if_command "$session_name:1.1" "yazi"
+  tmux_send_if_command "$session_name:1.2" "$dev_cmd"
+  tmux_send_if_command "$session_name:1.3" "$(git_command)"
+}
+
+create_ai_session() {
+  session_name="$1"
+  tmux new-session -d -s "$session_name" -c "$PWD" -n ai
+  tmux split-window -h -p 35 -t "$session_name:1" -c "$PWD"
+  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
+  tmux select-layout -t "$session_name:1" main-vertical
+  tmux select-pane -t "$session_name:1.1" -T browser
+  tmux select-pane -t "$session_name:1.2" -T agent
+  tmux select-pane -t "$session_name:1.3" -T shell
+  tmux_send_if_command "$session_name:1.1" "yazi"
+  tmux_send_if_command "$session_name:1.2" "$(agent_command)"
+}
+
+session_usage_error() {
+  usage >&2
+  exit 1
+}
+
+create_session_layout() {
+  layout="$1"
+  session_name="$2"
+  case "$layout" in
+    code) create_code_session "$session_name" ;;
+    backend) create_backend_session "$session_name" ;;
+    frontend) create_frontend_session "$session_name" ;;
+    ai) create_ai_session "$session_name" ;;
+    *) session_usage_error ;;
+  esac
+}
+
+session_command() {
+  [ -n "${TMUX:-}" ] || command -v tmux >/dev/null 2>&1 || {
+    printf 'fail  tmux not found\n' >&2
+    exit 1
+  }
+
+  layout="code"
+  session_name=
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -h|--help|help)
+        session_help
+        exit 0
+        ;;
+      code|backend|frontend|ai)
+        layout="$1"
+        ;;
+      --name)
+        shift
+        [ "$#" -gt 0 ] || session_usage_error
+        session_name="$1"
+        ;;
+      *)
+        session_usage_error
+        ;;
+    esac
+    shift
+  done
+
+  if [ -z "$session_name" ]; then
+    session_name="$(default_session_name "$layout")"
+  else
+    session_name="$(sanitize_session_name "$session_name")"
+  fi
+
+  if tmux has-session -t "$session_name" 2>/dev/null; then
+    printf 'ok    reuse session %s\n' "$session_name"
+    tmux_attach_session "$session_name"
+  fi
+
+  printf 'ok    create %s session %s\n' "$layout" "$session_name"
+  create_session_layout "$layout" "$session_name"
+  tmux_attach_session "$session_name"
+}
+
 doctor() {
   printf 'vibe-cli-kit doctor\n\n'
 
@@ -357,9 +1365,29 @@ case "${1:-}" in
     }
     doctor
     ;;
-  sync)
+sync)
     shift
     sync_configs "$@"
+    ;;
+  diff)
+    shift
+    diff_configs "$@"
+    ;;
+  update)
+    shift
+    update_tools "$@"
+    ;;
+  project)
+    shift
+    project_command "$@"
+    ;;
+  backup)
+    shift
+    backup_configs "$@"
+    ;;
+  session)
+    shift
+    session_command "$@"
     ;;
   -h|--help|help)
     usage

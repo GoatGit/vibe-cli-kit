@@ -2,14 +2,17 @@
 
 Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, ripgrep, lazygit, rich-cli, glow, fastfetch, btop.
 
-Compact reference based on the default project configuration, optimized for high-frequency tasks.
-
-## Quick Start
+## High Frequency
 
 ```sh
 hk          # Open this cheatsheet
 v doctor    # Check tool/config health
-v sync --dry-run --only tmux
+v backup --only tmux         # Back up tmux config only
+v diff --only tmux           # Compare tmux template and deployed config
+v update --dry-run --no-sync # Preview package updates without config sync
+v project                    # Detect project type and suggested commands
+v sync --dry-run --only tmux # Preview tmux config sync
+v session code               # Open the code workspace
 e           # Fuzzy-open a file in nvim
 fif tmux    # Search content and open the match
 p           # Jump to a project directory
@@ -17,26 +20,23 @@ tmn         # Open or create a tmux session using the current directory name
 tmx dev     # Enter the dev session
 y           # Open Yazi
 rg foo      # Search text globally
-rg --files | fzf
+rg --files | fzf # Fuzzy-pick a file
 z foo       # Jump to a frequent directory
 lazygit     # Open Git TUI
 nvim .      # Open current directory
 ```
 
-## Shell Entry Points
+## Shell
 
 - `hk` / `hotkeys`: open the cheatsheet
 - `v doctor`: check installation and config health
-- `v sync --dry-run --only tmux`: preview config sync
-- `e`: fuzzy-open a file with `fzf` + `nvim`
-- `fif`: search content with `rg` + `fzf` and jump into `nvim`
+- `v backup --only tmux`: back up current tmux config
+- `v diff --only tmux`: compare deployed config against templates
+- `v sync --dry-run --only tmux`: preview tmux config sync
+- `v update --dry-run --no-sync`: preview package updates only
+- `v project`: detect the current project type and suggested commands
+- `v session code|backend|frontend|ai`: create or reuse workspaces
 - `p`: jump to a project directory
-- `tmx`: enter `main`; attach if it exists, create if it does not
-- `tmx dev`: enter the `dev` session
-- `tmn`: create or enter a session named after the current directory
-- `tma`: attach `main`; create if missing
-- `tml`: list all sessions
-- `y`: open Yazi
 - `ll`: same as `lsd -lah`
 - `vim`: same as `nvim`
 
@@ -54,10 +54,7 @@ Prefix: `Ctrl+a`
 - `Ctrl+a r`: reload config
 - `Ctrl+a x` / `X`: close pane / window
 
-Copy mode:
-
-- `v`: start selection
-- `y`: copy and exit
+Copy mode: `v` starts selection, `y` copies and exits
 
 ## Ghostty
 
@@ -74,6 +71,7 @@ Copy mode:
 
 ## Yazi
 
+- `y`: open Yazi
 - `j/k`: move up / down
 - `h/l`: parent directory / enter directory
 - `g` / `G`: top / bottom
@@ -85,45 +83,20 @@ Copy mode:
 - `o` / `Enter`: open
 - `q`: quit
 
-## Search and Browse
-
-Hotkeys:
+## Search
 
 - `Ctrl+r`: fuzzy history search
 - `Ctrl+t`: fuzzy file insert
 - `Alt+c`: fuzzy directory jump
-
-High-frequency `rg / ripgrep`:
-
 - `rg foo`: search text globally
 - `rg -i foo`: ignore case
 - `rg -n foo`: show line numbers
-- `rg -C 2 foo`: show context
-- `rg foo templates`: search only in a directory
-- `rg foo -g "*.sh"`: search only matching file types
 - `rg --files`: list files
 - `rg --files | fzf`: fuzzy-pick a file
-
-Common commands:
-
-- `rg foo`: global text search
 - `bat file`: syntax-highlighted file view
-- `lsd -lah`: friendlier `ls`
+- `fd . | fzf`: fuzzy-pick a file or directory
 
-Combined usage:
-
-```sh
-rg --files | fzf
-fd . | fzf
-```
-
-## History and Jumping
-
-- `Ctrl+r`: atuin history search
-- `z foo`: jump to frequent directory
-- `zi`: interactive directory jump
-
-## Editing and Git
+## Edit / Git
 
 - `nvim`: open Neovim
 - `nvim .`: open current directory
@@ -133,14 +106,14 @@ fd . | fzf
 - `lazygit`: open Git TUI
 - `glow file.md`: read a Markdown file in the terminal
 
-## Project Jump
+## Jump
 
 - `p`: fuzzy-pick from common project roots
 - `p foo`: prefer `zoxide` or project-name match
-- `export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"`: override project roots
-
-## Markdown Reading
-
-- `hk`: open the command cheatsheet
-- `glow file.md`: read Markdown in the terminal
-- `y`: browse files in Yazi; `.md` preview uses `bat`
+- `z foo`: jump to frequent directory
+- `zi`: interactive directory jump
+- `tmx [name]`: enter a tmux session, default `main`
+- `tmx dev`: enter the `dev` session
+- `tmn`: create or enter a session named after the current directory
+- `tma`: attach `main`
+- `tml`: list all sessions

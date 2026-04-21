@@ -29,6 +29,16 @@ normalize_lang() {
   esac
 }
 
+detect_macos_lang() {
+  if ! command -v defaults >/dev/null 2>&1; then
+    return 1
+  fi
+
+  apple_lang="$(defaults read -g AppleLanguages 2>/dev/null | tr -d '()",' | awk 'NF { print $1; exit }')"
+  [ -n "$apple_lang" ] || return 1
+  normalize_lang "$apple_lang"
+}
+
 detect_lang() {
   if [ -n "${VIBE_CLI_KIT_LANG:-}" ]; then
     normalize_lang "$VIBE_CLI_KIT_LANG"
@@ -40,9 +50,11 @@ detect_lang() {
     return 0
   fi
 
-  if [ -n "${LANG:-}" ]; then
-    normalize_lang "$LANG"
-    return 0
+  if [ "$(uname -s 2>/dev/null || true)" = "Darwin" ]; then
+    if detect_macos_lang >/dev/null 2>&1; then
+      detect_macos_lang
+      return 0
+    fi
   fi
 
   if [ -n "${LC_MESSAGES:-}" ]; then
@@ -52,6 +64,11 @@ detect_lang() {
 
   if [ -n "${LC_ALL:-}" ]; then
     normalize_lang "$LC_ALL"
+    return 0
+  fi
+
+  if [ -n "${LANG:-}" ]; then
+    normalize_lang "$LANG"
     return 0
   fi
 

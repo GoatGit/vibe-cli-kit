@@ -1,16 +1,27 @@
 # vibe-cli-kit
 
-macOS、Linux、WSL 向けのワンコマンド端末セットアップキット。
+巨人の肩ではなく、巨人のシャベルの上に立つ。
+
+macOS、Linux、WSL 向けの vibe-coding 用クロスプラットフォーム端末ワークベンチ。
+
+このプロジェクトの考え方は明快です：
+
+- 実績のあるツールを作り直さず、その上に乗る
+- glue code は薄く、実用的に保つ
+- 設定コレクションではなく、日々のコーディング導線を最適化する
+- 「入れてすぐ書き始められる」状態を標準にする
 
 `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop` と、shell 補助コマンド、ローカルチートシートをまとめて導入します。
 
 ## ひと目でわかること
 
 - ツールと設定をまとめて導入
+- 重い dotfiles フレームワークにしない
+- 単なるツール集ではなく、コーディング導線を中心に設計
 - `ghostty` `tmux` `yazi` をすぐ使える状態にする
 - `hk` `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y` を追加
 - `brew` と `apt` に対応
-- ローカルテンプレートを保持し、`v doctor` と `v sync` を提供
+- ローカルテンプレートを保持し、`v doctor` `v backup` `v diff` `v sync` `v update` `v project` `v session` を提供
 - 環境に合わせて適応し、利用できないツールは安全にスキップ
 - 実行後に installed / skipped / unavailable を要約表示
 
@@ -22,7 +33,12 @@ source ~/.zshrc
 
 hk
 v doctor
+v backup --only tmux
+v diff --only tmux
+v update --dry-run --no-sync
+v project
 v sync --dry-run --only tmux
+v session code
 e
 fif tmux
 tmn
@@ -125,21 +141,26 @@ sh install.sh --help
 
 ```sh
 source ~/.zshrc
-hk
-v doctor
-v sync --dry-run --only tmux
-e
-fif tmux
-p
-tmn
-y
-tmx dev
-rg foo
-rg --files | fzf
-z foo
-lazygit
-nvim .
-glow README.ja.md
+hk                           # ローカルチートシートを開く
+v doctor                     # ツールと設定の状態を確認
+v backup --only tmux         # tmux 設定だけバックアップ
+v diff --only tmux           # tmux テンプレートとの差分を確認
+v update --dry-run --no-sync # 設定同期なしで更新をプレビュー
+v project                    # プロジェクト種別と推奨コマンドを表示
+v sync --dry-run --only tmux # tmux 設定同期をプレビュー
+v session code               # code workspace を開く
+e                            # ファイルをあいまい選択して nvim で開く
+fif tmux                     # 内容検索してヒット位置へ移動
+p                            # プロジェクトディレクトリへ移動
+tmn                          # 現在のディレクトリ名で tmux セッションを作成/再利用
+y                            # Yazi を開く
+tmx dev                      # dev セッションへ入る
+rg foo                       # 全文検索
+rg --files | fzf             # ファイルをあいまい選択
+z foo                        # よく使うディレクトリへ移動
+lazygit                      # Git TUI を開く
+nvim .                       # 現在のディレクトリを開く
+glow README.ja.md            # glow で README を読む
 ```
 
 ## デフォルトの使い方
@@ -160,7 +181,15 @@ glow README.ja.md
 ### ワークフローコマンド
 
 - `v doctor`：ツール、設定、スクリプト、shell 統合を確認
+- `v backup --only tmux`：現在の設定をバックアップ
+- `v diff --only tmux`：現在の設定とテンプレート差分を確認
+- `v update --dry-run --no-sync`：設定同期なしで更新をプレビュー
+- `v project`：現在のプロジェクト種別と推奨コマンドを表示
 - `v sync --dry-run --only tmux`：設定同期をプレビュー
+- `v session code`：コーディング用 workspace を作成または再利用
+- `v session backend`：バックエンド workspace を作成または再利用
+- `v session frontend`：フロントエンド workspace を作成または再利用
+- `v session ai`：AI workspace を作成または再利用
 - `v sync --only yazi`：Yazi 設定だけ同期
 - `v sync --mode backup`：上書き前にバックアップ
 - `e`：ファイルをあいまい選択して `nvim` で開く
@@ -188,7 +217,12 @@ glow README.ja.md
 - `hk`
 - `hotkeys`
 - `v doctor`
+- `v backup --only tmux`
+- `v diff --only tmux`
+- `v update --dry-run --no-sync`
+- `v project`
 - `v sync --dry-run --only tmux`
+- `v session code`
 - `e`
 - `fif tmux`
 - `p`
@@ -241,6 +275,128 @@ v sync --dry-run --only tmux
 v sync --only shell
 v sync --only bin --mode backup
 v sync --mode skip
+```
+
+### `v diff`
+
+用途：
+
+- ローカルテンプレートと現在の設定差分を比較
+- ファイルは変更しない
+- `sync` 前の確認に向く
+
+主なオプション：
+
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+
+例：
+
+```sh
+v diff
+v diff --only tmux
+v diff --only shell
+```
+
+### `v backup`
+
+用途：
+
+- 現在の設定をタイムスタンプ付きディレクトリへ退避
+- 今のファイルは変更しない
+- `sync` 前や手動編集前の退避に向く
+
+主なオプション：
+
+- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+
+例：
+
+```sh
+v backup
+v backup --only tmux
+v backup --only shell
+```
+
+### `v update`
+
+用途：
+
+- 現在のプラットフォーム向けに関連ツールを更新
+- `brew` では formula / cask を個別更新
+- `apt` では `--only-upgrade` を個別実行
+- 既定では更新後に `v sync` も実行
+
+主なオプション：
+
+- `--dry-run`
+- `--no-sync`
+
+例：
+
+```sh
+v update --dry-run --no-sync
+v update --dry-run
+v update
+```
+
+### `v session`
+
+用途：
+
+- プリセットレイアウトから tmux workspace を作成
+- 同名 session があれば再利用
+- tmux 内では `switch-client`、外では `attach-session`
+
+レイアウト：
+
+- `code`：yazi + shell + git
+- `backend`：server + tests + git
+- `frontend`：yazi + dev + git
+- `ai`：yazi + agent + shell
+
+命名規則：
+
+- `code` は現在ディレクトリ名を既定値にする
+- 他のレイアウトは `現在ディレクトリ名-レイアウト名`
+- `--name` で上書き可能。例：`v session ai --name semibot-ai`
+
+例：
+
+```sh
+v session code
+v session backend
+v session frontend
+v session ai
+v session ai --name vibe-ai
+```
+
+補足：
+
+- `code` レイアウトでは左大 pane で `yazi` を起動
+- `frontend` と `ai` も左大 pane は `yazi`
+- `yazi` からテキストを開くと、その pane 内で `nvim` が開く
+- `nvim` を閉じると `yazi` に戻る
+- `backend` / `frontend` は現在のプロジェクト種別から dev / test コマンドを補う
+
+### `v project`
+
+用途：
+
+- 現在のプロジェクト種別を判定
+- 推奨 runner を表示
+- 推奨 dev / test コマンドを表示
+
+現在の判定規則：
+
+- `package.json` -> Node
+- `pyproject.toml` -> Python
+- `Cargo.toml` -> Rust
+- `go.mod` -> Go
+
+例：
+
+```sh
+v project
 ```
 
 ### `e`
@@ -304,6 +460,10 @@ export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"
 - `--only-config` はツールをインストールしない
 - `--dry-run` は実際には変更しない
 - `v sync` は `~/.config/vibe-cli-kit/templates/` をローカルテンプレートとして使う
+- `v backup` は `~/.config/vibe-cli-kit/backups/<timestamp>/` に保存する
+- `v diff --only shell` は `~/.zshrc` の管理ブロックだけを比較する
+- `v update` は単一項目が失敗しても全体を止めずに続行する
+- `v session` は現在のディレクトリを起点に tmux workspace を作る
 - `p` は現在の shell ディレクトリを変えるため、独立コマンドではなく shell 関数
 
 ## メンテナンス

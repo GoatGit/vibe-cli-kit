@@ -2,14 +2,17 @@
 
 已集成：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
 
-紧凑版，按安装后的默认配置整理，优先覆盖最高频操作。
-
-## Quick Start
+## 高频命令
 
 ```sh
 hk          # 打开这份速查表
 v doctor    # 检查工具和配置状态
-v sync --dry-run --only tmux
+v backup --only tmux         # 只备份 tmux 配置
+v diff --only tmux           # 比较 tmux 模板和当前配置
+v update --dry-run --no-sync # 预览工具升级，不同步配置
+v project                    # 识别当前项目类型和建议命令
+v sync --dry-run --only tmux # 预览 tmux 配置同步
+v session code               # 打开 code 工作区
 e           # 模糊选文件并用 nvim 打开
 fif tmux    # 搜内容并直接跳到命中位置
 p           # 快速跳项目目录
@@ -17,26 +20,23 @@ tmn         # 当前目录开/进 tmux session
 tmx dev     # 进入 dev session
 y           # 打开 Yazi
 rg foo      # 全局搜索文本
-rg --files | fzf
+rg --files | fzf # 模糊选文件
 z foo       # 快速跳目录
 lazygit     # 打开 Git TUI
 nvim .      # 打开当前目录
 ```
 
-## Shell 入口
+## Shell
 
 - `hk` / `hotkeys`：打开速查表
-- `v doctor`：检查安装与配置状态
-- `v sync --dry-run --only tmux`：预览配置同步
-- `e`：用 `fzf` + `nvim` 模糊打开文件
-- `fif`：用 `rg` + `fzf` 搜内容并跳进 `nvim`
+- `v doctor`：检查安装和配置状态
+- `v backup --only tmux`：备份当前 tmux 配置
+- `v diff --only tmux`：看模板和当前配置差异
+- `v sync --dry-run --only tmux`：预览 tmux 配置同步
+- `v update --dry-run --no-sync`：只预览工具升级
+- `v project`：识别项目类型并给出建议命令
+- `v session code|backend|frontend|ai`：创建或复用工作区
 - `p`：快速跳项目目录
-- `tmx`：进 `main`；存在则 attach，不存在则创建
-- `tmx dev`：进 `dev` 会话；存在则 attach，不存在则创建
-- `tmn`：用当前目录名创建或进入 session
-- `tma`：attach `main`；不存在就创建
-- `tml`：列出全部 sessions
-- `y`：打开 Yazi
 - `ll`：等价于 `lsd -lah`
 - `vim`：等价于 `nvim`
 
@@ -54,10 +54,7 @@ nvim .      # 打开当前目录
 - `Ctrl+a r`：重载配置
 - `Ctrl+a x` / `X`：关闭 pane / window
 
-复制模式：
-
-- `v`：开始选中
-- `y`：复制并退出
+复制模式：`v` 选中，`y` 复制并退出
 
 ## Ghostty
 
@@ -74,6 +71,7 @@ nvim .      # 打开当前目录
 
 ## Yazi
 
+- `y`：打开 Yazi
 - `j/k`：上下移动
 - `h/l`：上级目录 / 进入目录
 - `g` / `G`：跳开头 / 结尾
@@ -85,45 +83,20 @@ nvim .      # 打开当前目录
 - `o` / `Enter`：打开
 - `q`：退出
 
-## 搜索与浏览
-
-快捷键：
+## Search
 
 - `Ctrl+r`：模糊搜历史命令
 - `Ctrl+t`：模糊插入文件路径
 - `Alt+c`：模糊切目录
-
-`rg / ripgrep` 高频：
-
 - `rg foo`：全局搜索文本
 - `rg -i foo`：忽略大小写搜索
 - `rg -n foo`：显示行号
-- `rg -C 2 foo`：显示上下文
-- `rg foo templates`：只搜指定目录
-- `rg foo -g "*.sh"`：只搜指定类型文件
 - `rg --files`：列出文件
 - `rg --files | fzf`：模糊选文件
-
-常用命令：
-
-- `rg foo`：全局文本搜索
 - `bat file`：带高亮查看文件
-- `lsd -lah`：更友好的 `ls`
+- `fd . | fzf`：模糊选文件或目录
 
-组合用法：
-
-```sh
-rg --files | fzf
-fd . | fzf
-```
-
-## 历史与跳转
-
-- `Ctrl+r`：atuin 历史搜索
-- `z foo`：跳到常用目录
-- `zi`：交互式跳目录
-
-## 编辑与 Git
+## Edit / Git
 
 - `nvim`：打开 Neovim
 - `nvim .`：打开当前目录
@@ -133,14 +106,14 @@ fd . | fzf
 - `lazygit`：打开 Git TUI
 - `glow file.md`：单独阅读 Markdown 文档
 
-## 项目跳转
+## Jump
 
 - `p`：从常见项目目录里模糊选择
 - `p foo`：优先用 `zoxide` 或项目名匹配
-- `export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"`：自定义搜索根目录
-
-## Markdown 阅读
-
-- `hk`：打开命令速查表
-- `glow file.md`：在终端里单独阅读 Markdown
-- `y`：在 Yazi 中浏览文件，`.md` 预览走 `bat`
+- `z foo`：跳到常用目录
+- `zi`：交互式跳目录
+- `tmx [name]`：进入指定 tmux session，默认 `main`
+- `tmx dev`：进入 `dev` session
+- `tmn`：用当前目录名创建或进入 session
+- `tma`：attach `main`
+- `tml`：列出全部 sessions
