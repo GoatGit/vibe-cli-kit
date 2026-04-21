@@ -4,11 +4,11 @@ Build on the shoulders of giants, with a shovel in hand.
 
 vibe-cli-kit is a cross-platform terminal workbench for vibe-coding on macOS, Linux, and WSL.
 
-[![Platforms](https://img.shields.io/badge?label=platform&message=macOS%20%7C%20Linux%20%7C%20WSL&color=1f6feb)](#notes)
-[![Package Managers](https://img.shields.io/badge?label=pkg&message=brew%20%7C%20apt&color=2da44e)](#notes)
-[![English](https://img.shields.io/badge?label=English&message=README&color=1f6feb)](README.en.md)
-[![简体中文](https://img.shields.io/badge?label=%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87&message=README&color=2da44e)](README.zh-CN.md)
-[![日本語](https://img.shields.io/badge?label=%E6%97%A5%E6%9C%AC%E8%AA%9E&message=README&color=f59e0b)](README.ja.md)
+[![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL-1f6feb?style=flat)](#notes)
+[![pkg](https://img.shields.io/badge/pkg-brew%20%7C%20apt-2da44e?style=flat)](#notes)
+[![English README](https://img.shields.io/badge/README-English-1f6feb?style=flat)](README.en.md)
+[![Chinese README](https://img.shields.io/badge/README-zh--CN-2da44e?style=flat)](README.zh-CN.md)
+[![Japanese README](https://img.shields.io/badge/README-ja-f59e0b?style=flat)](README.ja.md)
 
 The goal is simple: start from proven terminal tools, wire them together with practical defaults, and make daily coding flow faster without turning your setup into a dotfiles maze.
 
