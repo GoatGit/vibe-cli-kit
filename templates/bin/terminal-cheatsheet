@@ -49,21 +49,240 @@ detect_macos_appearance() {
   printf '%s\n' "$appearance"
 }
 
+trim_value() {
+  printf '%s\n' "$1" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g; s/^"//; s/"$//; s/^'\''//; s/'\''$//'
+}
+
+theme_name_mode() {
+  theme_name="$(printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]')"
+  case "$theme_name" in
+    *latte*|*light*|*day*|*github-light*|*solarized-light*)
+      printf 'light\n'
+      return 0
+      ;;
+    *mocha*|*macchiato*|*frappe*|*dark*|*night*|*nord*|*dracula*|*tokyo*|*gruvbox*|*onedark*|*onehalfdark*|*catppuccin*|*solarized-dark*)
+      printf 'dark\n'
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+xterm_component() {
+  idx="$1"
+  case "$idx" in
+    0) printf '0\n' ;;
+    1) printf '95\n' ;;
+    2) printf '135\n' ;;
+    3) printf '175\n' ;;
+    4) printf '215\n' ;;
+    5) printf '255\n' ;;
+    *) printf '0\n' ;;
+  esac
+}
+
+color_mode_from_token() {
+  token="$(trim_value "$1" | tr '[:upper:]' '[:lower:]')"
+  [ -n "$token" ] || return 1
+
+  case "$token" in
+    black|colour0|color0)
+      printf 'dark\n'
+      return 0
+      ;;
+    white|colour15|color15)
+      printf 'light\n'
+      return 0
+      ;;
+    default)
+      return 1
+      ;;
+  esac
+
+  case "$token" in
+    \#??????)
+      hex="${token#\#}"
+      r=$((16#${hex%????}))
+      g=$((16#${hex#??}))
+      g=$((16#${g%??}))
+      b=$((16#${hex#????}))
+      luma=$((r * 299 + g * 587 + b * 114))
+      if [ "$luma" -ge 128000 ]; then
+        printf 'light\n'
+      else
+        printf 'dark\n'
+      fi
+      return 0
+      ;;
+  esac
+
+  case "$token" in
+    colour*|color*)
+      idx="${token#colour}"
+      idx="${idx#color}"
+      case "$idx" in
+        ''|*[!0-9]*)
+          return 1
+          ;;
+      esac
+      if [ "$idx" -lt 16 ]; then
+        if [ "$idx" -ge 8 ]; then
+          printf 'light\n'
+        else
+          printf 'dark\n'
+        fi
+        return 0
+      fi
+      if [ "$idx" -ge 232 ] && [ "$idx" -le 255 ]; then
+        gray=$((8 + (idx - 232) * 10))
+        if [ "$gray" -ge 128 ]; then
+          printf 'light\n'
+        else
+          printf 'dark\n'
+        fi
+        return 0
+      fi
+      if [ "$idx" -ge 16 ] && [ "$idx" -le 231 ]; then
+        offset=$((idx - 16))
+        r_i=$((offset / 36))
+        g_i=$(((offset % 36) / 6))
+        b_i=$((offset % 6))
+        r="$(xterm_component "$r_i")"
+        g="$(xterm_component "$g_i")"
+        b="$(xterm_component "$b_i")"
+        luma=$((r * 299 + g * 587 + b * 114))
+        if [ "$luma" -ge 128000 ]; then
+          printf 'light\n'
+        else
+          printf 'dark\n'
+        fi
+        return 0
+      fi
+      ;;
+  esac
+
+  return 1
+}
+
 detect_ghostty_theme_mode() {
   ghostty_config="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config"
   [ -f "$ghostty_config" ] || return 1
 
-  theme_name="$(awk -F '=' '/^[[:space:]]*theme[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print tolower($2); exit}' "$ghostty_config")"
+  theme_name="$(awk -F '=' '/^[[:space:]]*theme[[:space:]]*=/{print $2; exit}' "$ghostty_config")"
   [ -n "$theme_name" ] || return 1
 
-  case "$theme_name" in
-    *latte*|*light*|*day*|*github-light*)
-      printf 'light\n'
-      return 0
+  theme_name_mode "$theme_name" && return 0
+
+  return 1
+}
+
+detect_tmux_theme_mode() {
+  tmux_config="${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf"
+  [ -f "$tmux_config" ] || tmux_config="$HOME/.tmux.conf"
+  [ -f "$tmux_config" ] || return 1
+
+  bg_token="$(
+    awk '
+      /^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+status-style[[:space:]]+/ {
+        for (i = 1; i <= NF; i++) {
+          n = split($i, parts, ",")
+          for (j = 1; j <= n; j++) {
+            if (parts[j] ~ /^bg=/) {
+              sub(/^bg=/, "", parts[j])
+              print parts[j]
+              exit
+            }
+          }
+        }
+      }
+      /^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+status-style[[:space:]]+"/ {
+        line = $0
+        n = split(line, parts, ",")
+        for (j = 1; j <= n; j++) {
+          if (parts[j] ~ /bg=/) {
+            sub(/.*bg=/, "", parts[j])
+            sub(/".*/, "", parts[j])
+            print parts[j]
+            exit
+          }
+        }
+      }
+      /^[[:space:]]*set(-option)?[[:space:]]+-g[[:space:]]+status-bg[[:space:]]+/ {
+        print $NF
+        exit
+      }
+    ' "$tmux_config"
+  )"
+  [ -n "$bg_token" ] || return 1
+
+  color_mode_from_token "$bg_token"
+}
+
+detect_wezterm_theme_mode() {
+  wezterm_config="${XDG_CONFIG_HOME:-$HOME/.config}/wezterm/wezterm.lua"
+  [ -f "$wezterm_config" ] || wezterm_config="$HOME/.wezterm.lua"
+  [ -f "$wezterm_config" ] || return 1
+
+  scheme_name="$(
+    sed -nE 's/.*color_scheme[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$wezterm_config" | head -n 1
+  )"
+  [ -n "$scheme_name" ] || return 1
+
+  theme_name_mode "$scheme_name"
+}
+
+detect_kitty_theme_mode() {
+  kitty_config="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/current-theme.conf"
+  [ -f "$kitty_config" ] || kitty_config="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/kitty.conf"
+  [ -f "$kitty_config" ] || return 1
+
+  bg_token="$(
+    awk '/^[[:space:]]*background[[:space:]]+/ { print $2; exit }' "$kitty_config"
+  )"
+  [ -n "$bg_token" ] || return 1
+
+  color_mode_from_token "$bg_token"
+}
+
+detect_alacritty_theme_mode() {
+  alacritty_toml="${XDG_CONFIG_HOME:-$HOME/.config}/alacritty/alacritty.toml"
+  alacritty_yml="${XDG_CONFIG_HOME:-$HOME/.config}/alacritty/alacritty.yml"
+  alacritty_yaml="${XDG_CONFIG_HOME:-$HOME/.config}/alacritty/alacritty.yaml"
+
+  if [ -f "$alacritty_toml" ]; then
+    bg_token="$(sed -nE 's/^[[:space:]]*background[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' "$alacritty_toml" | head -n 1)"
+  elif [ -f "$alacritty_yml" ]; then
+    bg_token="$(sed -nE "s/^[[:space:]]*background:[[:space:]]*'?(#[0-9A-Fa-f]{6})'?.*/\\1/p" "$alacritty_yml" | head -n 1)"
+  elif [ -f "$alacritty_yaml" ]; then
+    bg_token="$(sed -nE "s/^[[:space:]]*background:[[:space:]]*'?(#[0-9A-Fa-f]{6})'?.*/\\1/p" "$alacritty_yaml" | head -n 1)"
+  else
+    return 1
+  fi
+  [ -n "${bg_token:-}" ] || return 1
+
+  color_mode_from_token "$bg_token"
+}
+
+detect_terminal_theme_mode() {
+  if [ -n "${TMUX:-}" ]; then
+    detect_tmux_theme_mode && return 0
+  fi
+
+  case "${TERM_PROGRAM:-}" in
+    ghostty)
+      detect_ghostty_theme_mode && return 0
       ;;
-    *mocha*|*macchiato*|*frappe*|*dark*|*night*|*nord*|*dracula*|*tokyo*|*gruvbox*|*onedark*|*onehalfdark*|*catppuccin*)
-      printf 'dark\n'
-      return 0
+    WezTerm|wezterm)
+      detect_wezterm_theme_mode && return 0
+      ;;
+  esac
+
+  detect_kitty_theme_mode && return 0
+  detect_alacritty_theme_mode && return 0
+
+  case "${LC_TERMINAL:-}" in
+    iTerm2|Apple_Terminal)
+      :
       ;;
   esac
 
@@ -81,18 +300,16 @@ detect_bat_theme() {
     return 0
   fi
 
-  if [ "${TERM_PROGRAM:-}" = "ghostty" ]; then
-    case "$(detect_ghostty_theme_mode 2>/dev/null || true)" in
-      dark)
-        printf 'OneHalfDark\n'
-        return 0
-        ;;
-      light)
-        printf 'GitHub\n'
-        return 0
-        ;;
-    esac
-  fi
+  case "$(detect_terminal_theme_mode 2>/dev/null || true)" in
+    dark)
+      printf 'OneHalfDark\n'
+      return 0
+      ;;
+    light)
+      printf 'GitHub\n'
+      return 0
+      ;;
+  esac
 
   if [ "$(uname -s 2>/dev/null || true)" = "Darwin" ]; then
     if [ "$(detect_macos_appearance 2>/dev/null || true)" = "Dark" ]; then

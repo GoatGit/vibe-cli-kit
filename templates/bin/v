@@ -1004,6 +1004,15 @@ package_has_script() {
   grep -Eq "\"$script_name\"[[:space:]]*:" package.json
 }
 
+package_first_script_matching() {
+  pattern="$1"
+  [ -f package.json ] || return 1
+  grep -E "\"[^\"]+\"[[:space:]]*:" package.json | \
+    sed -E 's/^[[:space:]]*"([^"]+)"[[:space:]]*:.*/\1/' | \
+    grep -E "$pattern" | \
+    head -n 1
+}
+
 node_script_command() {
   script_name="$1"
   runner="$(detect_node_runner)"
@@ -1068,7 +1077,12 @@ project_test_command() {
       if package_has_script test; then
         node_script_command test
       else
-        printf '\n'
+        fallback_test_script="$(package_first_script_matching "^test:" || true)"
+        if [ -n "$fallback_test_script" ]; then
+          node_script_command "$fallback_test_script"
+        else
+          printf '\n'
+        fi
       fi
       ;;
     python)
@@ -1090,6 +1104,18 @@ project_test_command() {
       printf '\n'
       ;;
   esac
+}
+
+current_project_name() {
+  if command -v git >/dev/null 2>&1; then
+    top_level="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "$top_level" ]; then
+      basename "$top_level"
+      return 0
+    fi
+  fi
+
+  basename "$PWD"
 }
 
 project_runner_label() {
@@ -1137,8 +1163,9 @@ project_command() {
   runner="$(project_runner_label)"
   dev_cmd="$(project_dev_command)"
   test_cmd="$(project_test_command)"
+  project_name="$(current_project_name)"
 
-  printf 'vibe-cli-kit project\n\n'
+  printf '%s project\n\n' "$project_name"
   printf 'type: %s\n' "$project_type"
   printf 'runner: %s\n' "$runner"
   if [ -n "$dev_cmd" ]; then
