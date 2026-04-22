@@ -125,6 +125,7 @@ sh install.sh --help
 - `~/.local/bin/v`
 - `~/.local/bin/e`
 - `~/.local/bin/fif`
+- `~/.config/vibe-cli-kit/session.conf.example`
 - `~/.config/vibe-cli-kit/templates/`
 
 さらに `~/.zshrc` の管理ブロックを更新します：
@@ -185,6 +186,7 @@ glow README.ja.md            # glow で README を読む
 - `v session backend`：バックエンド workspace を作成または再利用
 - `v session frontend`：フロントエンド workspace を作成または再利用
 - `v session ai`：AI workspace を作成または再利用
+- `v session ... --reset`：現在のレイアウトで named session を作り直す
 - `v sync --only yazi`：Yazi 設定だけ同期
 - `v sync --mode backup`：上書き前にバックアップ
 - `e`：ファイルをあいまい選択して `nvim` で開く
@@ -193,6 +195,7 @@ glow README.ja.md            # glow で README を読む
 - `fif`：対話型の全文検索
 - `p`：プロジェクトディレクトリへ移動
 - `p vibe-cli-kit`：`zoxide` またはプロジェクト候補から移動
+- `~/.config/vibe-cli-kit/session.conf.example` を `~/.config/vibe-cli-kit/session.conf` にコピーすると、session の pane 比率やコマンドを上書き可能
 
 ### Yazi
 

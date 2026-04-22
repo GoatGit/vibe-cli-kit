@@ -1,0 +1,13 @@
+name: smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shell-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shell smoke tests
+        run: sh tests/run.sh

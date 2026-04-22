@@ -125,6 +125,7 @@ sh install.sh --help
 - `~/.local/bin/v`
 - `~/.local/bin/e`
 - `~/.local/bin/fif`
+- `~/.config/vibe-cli-kit/session.conf.example`
 - `~/.config/vibe-cli-kit/templates/`
 
 It also updates a managed block in `~/.zshrc`:
@@ -185,6 +186,7 @@ glow README.en.md            # read the README with glow
 - `v session backend`: create or reuse a backend workspace
 - `v session frontend`: create or reuse a frontend workspace
 - `v session ai`: create or reuse an AI workspace
+- `v session ... --reset`: recreate a named session from scratch
 - `v sync --only yazi`: sync only Yazi configs
 - `v sync --mode backup`: back up files before overwriting
 - `e`: fuzzy-pick a file and open it in `nvim`
@@ -193,6 +195,7 @@ glow README.en.md            # read the README with glow
 - `fif`: start interactive content search
 - `p`: fuzzy-jump to a project directory
 - `p vibe-cli-kit`: prefer `zoxide` or project-path matching
+- Copy `~/.config/vibe-cli-kit/session.conf.example` to `~/.config/vibe-cli-kit/session.conf` to override session pane ratios and commands
 
 ### Yazi
 

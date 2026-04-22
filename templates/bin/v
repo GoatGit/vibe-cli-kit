@@ -8,6 +8,7 @@ TEMPLATE_DIR="$KIT_DIR/templates"
 CHEATSHEET_DIR="$CONFIG_DIR/cheatsheets"
 LOCAL_BIN_DIR="$HOME/.local/bin"
 SHELL_RC="$HOME/.zshrc"
+SESSION_CONFIG_FILE="$KIT_DIR/session.conf"
 START_MARKER="# >>> vibe-cli-kit >>>"
 END_MARKER="# <<< vibe-cli-kit <<<"
 SYNC_TARGET=all
@@ -27,6 +28,7 @@ FAILED_ITEMS=
 OK_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
+SESSION_CONFIG_LOADED=0
 
 usage() {
   cat <<'EOF'
@@ -34,9 +36,9 @@ Usage:
   v
   v [--lang en|zh-CN|ja]
   v doctor
-  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
-  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
-  v sync [--dry-run] [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell] [--mode overwrite|skip|backup]
+  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
+  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
+  v sync [--dry-run] [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell] [--mode overwrite|skip|backup]
   v update [--dry-run] [--no-sync]
   v session [code|backend|frontend|ai] [--name SESSION] [--reset]
   v project
@@ -99,6 +101,7 @@ Naming:
 Behavior:
   existing session -> reuse by default
   --reset          -> recreate the target session from scratch
+  config file      -> ~/.config/vibe-cli-kit/session.conf
 
 Examples:
   v session code
@@ -125,7 +128,7 @@ EOF
 diff_help() {
   cat <<'EOF'
 Usage:
-  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
+  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
 
 Behavior:
   - compares the local template store with deployed files
@@ -137,7 +140,7 @@ EOF
 backup_help() {
   cat <<'EOF'
 Usage:
-  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
+  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
 
 Behavior:
   - backs up deployed files into ~/.config/vibe-cli-kit/backups/<timestamp>/
@@ -329,6 +332,11 @@ sync_tmux() {
   copy_file "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf"
 }
 
+sync_session() {
+  copy_file "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf"
+  copy_file "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf.example"
+}
+
 sync_cheatsheets() {
   copy_file "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.en.md" "$CHEATSHEET_DIR/terminal-cheatsheet.en.md"
   copy_file "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.zh-CN.md" "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md"
@@ -364,6 +372,7 @@ sync_target() {
       sync_ghostty
       sync_yazi
       sync_tmux
+      sync_session
       sync_cheatsheets
       sync_bin
       sync_shell
@@ -371,6 +380,7 @@ sync_target() {
     ghostty) sync_ghostty ;;
     yazi) sync_yazi ;;
     tmux) sync_tmux ;;
+    session) sync_session ;;
     cheatsheets) sync_cheatsheets ;;
     bin) sync_bin ;;
     shell) sync_shell ;;
@@ -473,6 +483,10 @@ backup_target() {
     tmux)
       backup_copy_file tmux "$HOME/.tmux.conf" "$root/tmux/tmux.conf"
       ;;
+    session)
+      backup_copy_file session "$KIT_DIR/session.conf" "$root/session/session.conf"
+      backup_copy_file session.example "$KIT_DIR/session.conf.example" "$root/session/session.conf.example"
+      ;;
     cheatsheets)
       backup_copy_file cheatsheet.en "$CHEATSHEET_DIR/terminal-cheatsheet.en.md" "$root/cheatsheets/terminal-cheatsheet.en.md"
       backup_copy_file cheatsheet.zh-CN "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md" "$root/cheatsheets/terminal-cheatsheet.zh-CN.md"
@@ -501,6 +515,7 @@ backup_target() {
       backup_target ghostty "$root"
       backup_target yazi "$root"
       backup_target tmux "$root"
+      backup_target session "$root"
       backup_target cheatsheets "$root"
       backup_target bin "$root"
       backup_target shell "$root"
@@ -600,6 +615,10 @@ diff_target() {
     tmux)
       run_diff_pair "tmux" "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf" || diff_found=1
       ;;
+    session)
+      run_diff_pair "session.conf" "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf" || diff_found=1
+      run_diff_pair "session.conf.example" "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf.example" || diff_found=1
+      ;;
     cheatsheets)
       run_diff_pair "cheatsheet.en" "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.en.md" "$CHEATSHEET_DIR/terminal-cheatsheet.en.md" || diff_found=1
       run_diff_pair "cheatsheet.zh-CN" "$TEMPLATE_DIR/cheatsheets/terminal-cheatsheet.zh-CN.md" "$CHEATSHEET_DIR/terminal-cheatsheet.zh-CN.md" || diff_found=1
@@ -624,6 +643,7 @@ diff_target() {
       diff_target ghostty || diff_found=1
       diff_target yazi || diff_found=1
       diff_target tmux || diff_found=1
+      diff_target session || diff_found=1
       diff_target cheatsheets || diff_found=1
       diff_target bin || diff_found=1
       diff_target shell || diff_found=1
@@ -972,15 +992,96 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+load_session_config() {
+  if [ "$SESSION_CONFIG_LOADED" -eq 1 ]; then
+    return 0
+  fi
+
+  if [ -f "$SESSION_CONFIG_FILE" ]; then
+    # User-owned overrides for session pane commands and ratios.
+    # shellcheck disable=SC1090
+    . "$SESSION_CONFIG_FILE"
+  fi
+
+  SESSION_CONFIG_LOADED=1
+}
+
+session_config_value() {
+  var_name="$1"
+  default_value="$2"
+  load_session_config
+  eval "value=\${$var_name-}"
+  if [ -n "${value:-}" ]; then
+    printf '%s\n' "$value"
+  else
+    printf '%s\n' "$default_value"
+  fi
+}
+
+resolve_session_command() {
+  spec="$1"
+  case "$spec" in
+    ""|@none)
+      printf '\n'
+      ;;
+    @shell)
+      printf '%s\n' "${SHELL:-/bin/sh}"
+      ;;
+    @git)
+      git_command
+      ;;
+    @agent)
+      agent_command
+      ;;
+    @dev)
+      project_dev_command
+      ;;
+    @test)
+      project_test_command
+      ;;
+    @editor)
+      editor_command
+      ;;
+    @yazi)
+      printf 'yazi\n'
+      ;;
+    *)
+      printf '%s\n' "$spec"
+      ;;
+  esac
+}
+
 detect_project_type() {
   if [ -f package.json ]; then
-    printf 'node\n'
-  elif [ -f pyproject.toml ]; then
-    printf 'python\n'
+    if [ -f nest-cli.json ] || grep -Eq '"@nestjs/(core|cli)"[[:space:]]*:' package.json; then
+      printf 'nestjs\n'
+    elif [ -f next.config.js ] || [ -f next.config.mjs ] || [ -f next.config.ts ] || grep -Eq '"next"[[:space:]]*:' package.json; then
+      printf 'nextjs\n'
+    elif [ -f vite.config.js ] || [ -f vite.config.mjs ] || [ -f vite.config.ts ] || [ -f vite.config.cjs ] || grep -Eq '"vite"[[:space:]]*:' package.json; then
+      printf 'vite\n'
+    else
+      printf 'node\n'
+    fi
+  elif [ -f manage.py ]; then
+    printf 'django\n'
+  elif [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f requirements-dev.txt ]; then
+    if grep -Eqi 'fastapi|uvicorn' pyproject.toml requirements.txt requirements-dev.txt 2>/dev/null; then
+      printf 'fastapi\n'
+    else
+      printf 'python\n'
+    fi
   elif [ -f Cargo.toml ]; then
-    printf 'rust\n'
+    if grep -Eq '^\[workspace\]' Cargo.toml; then
+      printf 'rust-workspace\n'
+    else
+      printf 'rust\n'
+    fi
+  elif [ -f go.work ]; then
+    printf 'go-workspace\n'
   elif [ -f go.mod ]; then
     printf 'go\n'
+  elif [ -f docker-compose.yml ] || [ -f compose.yml ] || [ -f compose.yaml ] || [ -f docker-compose.yaml ]; then
+    printf 'docker-compose\n'
   else
     printf 'generic\n'
   fi
@@ -1010,13 +1111,34 @@ package_has_script() {
   grep -Eq "\"$script_name\"[[:space:]]*:" package.json
 }
 
-package_first_script_matching() {
-  pattern="$1"
+package_scripts() {
   [ -f package.json ] || return 1
   grep -E "\"[^\"]+\"[[:space:]]*:" package.json | \
-    sed -E 's/^[[:space:]]*"([^"]+)"[[:space:]]*:.*/\1/' | \
-    grep -E "$pattern" | \
-    head -n 1
+    sed -E 's/^[[:space:]]*"([^"]+)"[[:space:]]*:.*/\1/'
+}
+
+package_first_script_matching() {
+  pattern="$1"
+  package_scripts | grep -E "$pattern" | head -n 1
+}
+
+package_best_test_script() {
+  package_scripts | while IFS= read -r script_name; do
+    case "$script_name" in
+      test) score=0 ;;
+      *unit*) score=10 ;;
+      *core*) score=20 ;;
+      *integration*) score=30 ;;
+      *runtime*) score=40 ;;
+      *contract*) score=50 ;;
+      *smoke*) score=60 ;;
+      *all*) score=70 ;;
+      *e2e*|*page*) score=90 ;;
+      test:*) score=80 ;;
+      *) continue ;;
+    esac
+    printf '%03d:%03d:%s\n' "$score" "$(printf '%s' "$script_name" | wc -c | tr -d ' ')" "$script_name"
+  done | sort | head -n 1 | cut -d: -f3-
 }
 
 node_script_command() {
@@ -1038,23 +1160,43 @@ node_script_command() {
 project_dev_command() {
   project_type="$(detect_project_type)"
   case "$project_type" in
-    node)
+    nextjs|vite|nestjs|node)
       if package_has_script dev; then
         node_script_command dev
+      elif package_has_script start:dev; then
+        node_script_command start:dev
       elif package_has_script start; then
         node_script_command start
       else
         printf '\n'
       fi
       ;;
-    python)
-      if [ -f manage.py ]; then
+    django)
+      if command_exists uv; then
+        printf 'uv run python manage.py runserver\n'
+      else
+        printf 'python3 manage.py runserver\n'
+      fi
+      ;;
+    fastapi)
+      if [ -f main.py ]; then
         if command_exists uv; then
-          printf 'uv run python manage.py runserver\n'
+          printf 'uv run uvicorn main:app --reload\n'
         else
-          printf 'python3 manage.py runserver\n'
+          printf 'uvicorn main:app --reload\n'
         fi
-      elif [ -f app.py ]; then
+      elif [ -f app/main.py ]; then
+        if command_exists uv; then
+          printf 'uv run uvicorn app.main:app --reload\n'
+        else
+          printf 'uvicorn app.main:app --reload\n'
+        fi
+      else
+        printf '\n'
+      fi
+      ;;
+    python)
+      if [ -f app.py ]; then
         if command_exists uv; then
           printf 'uv run python app.py\n'
         else
@@ -1064,11 +1206,14 @@ project_dev_command() {
         printf '\n'
       fi
       ;;
-    rust)
+    rust|rust-workspace)
       printf 'cargo run\n'
       ;;
-    go)
+    go|go-workspace)
       printf 'go run .\n'
+      ;;
+    docker-compose)
+      printf 'docker compose up\n'
       ;;
     *)
       printf '\n'
@@ -1079,11 +1224,11 @@ project_dev_command() {
 project_test_command() {
   project_type="$(detect_project_type)"
   case "$project_type" in
-    node)
+    nextjs|vite|nestjs|node)
       if package_has_script test; then
         node_script_command test
       else
-        fallback_test_script="$(package_first_script_matching "^test:" || true)"
+        fallback_test_script="$(package_best_test_script || true)"
         if [ -n "$fallback_test_script" ]; then
           node_script_command "$fallback_test_script"
         else
@@ -1091,7 +1236,7 @@ project_test_command() {
         fi
       fi
       ;;
-    python)
+    django|fastapi|python)
       if command_exists uv; then
         printf 'uv run pytest\n'
       elif command_exists pytest; then
@@ -1100,10 +1245,10 @@ project_test_command() {
         printf '\n'
       fi
       ;;
-    rust)
+    rust|rust-workspace)
       printf 'cargo test\n'
       ;;
-    go)
+    go|go-workspace)
       printf 'go test ./...\n'
       ;;
     *)
@@ -1127,10 +1272,10 @@ current_project_name() {
 project_runner_label() {
   project_type="$(detect_project_type)"
   case "$project_type" in
-    node)
+    nextjs|vite|nestjs|node)
       detect_node_runner
       ;;
-    python)
+    django|fastapi|python)
       if command_exists uv; then
         printf 'uv\n'
       elif command_exists python3; then
@@ -1139,11 +1284,14 @@ project_runner_label() {
         printf 'python\n'
       fi
       ;;
-    rust)
+    rust|rust-workspace)
       printf 'cargo\n'
       ;;
-    go)
+    go|go-workspace)
       printf 'go\n'
+      ;;
+    docker-compose)
+      printf 'docker\n'
       ;;
     *)
       printf 'generic\n'
@@ -1239,64 +1387,119 @@ tmux_send_if_command() {
   tmux send-keys -t "$pane_target" "$command_text" C-m
 }
 
+tmux_new_named_session() {
+  session_name="$1"
+  window_name="$2"
+  tmux new-session -d -s "$session_name" -c "$PWD" -n "$window_name"
+}
+
+create_main_vertical_session() {
+  session_name="$1"
+  window_name="$2"
+  left_title="$3"
+  right_top_title="$4"
+  right_bottom_title="$5"
+  right_width="$6"
+  left_cmd="$7"
+  right_top_cmd="$8"
+  right_bottom_cmd="$9"
+
+  tmux_new_named_session "$session_name" "$window_name"
+  left_pane="$(tmux display-message -p -t "$session_name:1.1" '#{pane_id}')"
+  right_top_pane="$(tmux split-window -h -p "$right_width" -t "$left_pane" -c "$PWD" -P -F '#{pane_id}')"
+  right_bottom_pane="$(tmux split-window -v -p 50 -t "$right_top_pane" -c "$PWD" -P -F '#{pane_id}')"
+  tmux select-pane -t "$left_pane" -T "$left_title"
+  tmux select-pane -t "$right_top_pane" -T "$right_top_title"
+  tmux select-pane -t "$right_bottom_pane" -T "$right_bottom_title"
+  tmux_send_if_command "$left_pane" "$left_cmd"
+  tmux_send_if_command "$right_top_pane" "$right_top_cmd"
+  tmux_send_if_command "$right_bottom_pane" "$right_bottom_cmd"
+}
+
+create_quad_session() {
+  session_name="$1"
+  window_name="$2"
+  top_left_title="$3"
+  top_right_title="$4"
+  bottom_left_title="$5"
+  bottom_right_title="$6"
+  right_width="$7"
+  top_left_cmd="$8"
+  top_right_cmd="$9"
+  bottom_left_cmd="${10}"
+  bottom_right_cmd="${11}"
+
+  tmux_new_named_session "$session_name" "$window_name"
+  top_left_pane="$(tmux display-message -p -t "$session_name:1.1" '#{pane_id}')"
+  top_right_pane="$(tmux split-window -h -p "$right_width" -t "$top_left_pane" -c "$PWD" -P -F '#{pane_id}')"
+  bottom_left_pane="$(tmux split-window -v -p 50 -t "$top_left_pane" -c "$PWD" -P -F '#{pane_id}')"
+  bottom_right_pane="$(tmux split-window -v -p 50 -t "$top_right_pane" -c "$PWD" -P -F '#{pane_id}')"
+  tmux select-pane -t "$top_left_pane" -T "$top_left_title"
+  tmux select-pane -t "$top_right_pane" -T "$top_right_title"
+  tmux select-pane -t "$bottom_left_pane" -T "$bottom_left_title"
+  tmux select-pane -t "$bottom_right_pane" -T "$bottom_right_title"
+  tmux_send_if_command "$top_left_pane" "$top_left_cmd"
+  tmux_send_if_command "$top_right_pane" "$top_right_cmd"
+  tmux_send_if_command "$bottom_left_pane" "$bottom_left_cmd"
+  tmux_send_if_command "$bottom_right_pane" "$bottom_right_cmd"
+}
+
 create_code_session() {
   session_name="$1"
-  tmux new-session -d -s "$session_name" -c "$PWD" -n code
-  tmux split-window -h -p 32 -t "$session_name:1" -c "$PWD"
-  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
-  tmux select-layout -t "$session_name:1" main-vertical
-  tmux select-pane -t "$session_name:1.1" -T browser
-  tmux select-pane -t "$session_name:1.2" -T shell
-  tmux select-pane -t "$session_name:1.3" -T git
-  tmux_send_if_command "$session_name:1.1" "yazi"
-  tmux_send_if_command "$session_name:1.3" "$(git_command)"
+  create_main_vertical_session \
+    "$session_name" \
+    code \
+    browser \
+    shell \
+    git \
+    "$(session_config_value VIBE_SESSION_CODE_RIGHT_WIDTH 32)" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_CODE_LEFT_CMD @yazi)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_CODE_RIGHT_TOP_CMD @shell)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_CODE_RIGHT_BOTTOM_CMD @git)")"
 }
 
 create_backend_session() {
   session_name="$1"
-  dev_cmd="$(project_dev_command)"
-  test_cmd="$(project_test_command)"
-  tmux new-session -d -s "$session_name" -c "$PWD" -n backend
-  tmux split-window -h -p 35 -t "$session_name:1" -c "$PWD"
-  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
-  tmux select-layout -t "$session_name:1" main-vertical
-  tmux select-pane -t "$session_name:1.1" -T server
-  tmux select-pane -t "$session_name:1.2" -T tests
-  tmux select-pane -t "$session_name:1.3" -T git
-  tmux_send_if_command "$session_name:1.1" "$dev_cmd"
-  tmux_send_if_command "$session_name:1.2" "$test_cmd"
-  tmux_send_if_command "$session_name:1.3" "$(git_command)"
+  create_main_vertical_session \
+    "$session_name" \
+    backend \
+    server \
+    tests \
+    git \
+    "$(session_config_value VIBE_SESSION_BACKEND_RIGHT_WIDTH 35)" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_BACKEND_LEFT_CMD @dev)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_BACKEND_RIGHT_TOP_CMD @test)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_BACKEND_RIGHT_BOTTOM_CMD @git)")"
 }
 
 create_frontend_session() {
   session_name="$1"
-  dev_cmd="$(project_dev_command)"
-  tmux new-session -d -s "$session_name" -c "$PWD" -n frontend
-  tmux split-window -h -p 35 -t "$session_name:1" -c "$PWD"
-  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
-  tmux select-layout -t "$session_name:1" main-vertical
-  tmux select-pane -t "$session_name:1.1" -T browser
-  tmux select-pane -t "$session_name:1.2" -T dev
-  tmux select-pane -t "$session_name:1.3" -T git
-  tmux_send_if_command "$session_name:1.1" "yazi"
-  tmux_send_if_command "$session_name:1.2" "$dev_cmd"
-  tmux_send_if_command "$session_name:1.3" "$(git_command)"
+  create_main_vertical_session \
+    "$session_name" \
+    frontend \
+    browser \
+    dev \
+    git \
+    "$(session_config_value VIBE_SESSION_FRONTEND_RIGHT_WIDTH 35)" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_FRONTEND_LEFT_CMD @yazi)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_FRONTEND_RIGHT_TOP_CMD @dev)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_FRONTEND_RIGHT_BOTTOM_CMD @git)")"
 }
 
 create_ai_session() {
   session_name="$1"
-  tmux new-session -d -s "$session_name" -c "$PWD" -n ai
-  top_left_pane="$(tmux display-message -p -t "$session_name:1.1" '#{pane_id}')"
-  top_right_pane="$(tmux split-window -h -p 40 -t "$top_left_pane" -c "$PWD" -P -F '#{pane_id}')"
-  bottom_left_pane="$(tmux split-window -v -p 50 -t "$top_left_pane" -c "$PWD" -P -F '#{pane_id}')"
-  bottom_right_pane="$(tmux split-window -v -p 50 -t "$top_right_pane" -c "$PWD" -P -F '#{pane_id}')"
-  tmux select-pane -t "$top_left_pane" -T yazi
-  tmux select-pane -t "$top_right_pane" -T git
-  tmux select-pane -t "$bottom_left_pane" -T ai
-  tmux select-pane -t "$bottom_right_pane" -T shell
-  tmux_send_if_command "$top_left_pane" "yazi"
-  tmux_send_if_command "$top_right_pane" "$(git_command)"
-  tmux_send_if_command "$bottom_left_pane" "$(agent_command)"
+  create_quad_session \
+    "$session_name" \
+    ai \
+    yazi \
+    git \
+    ai \
+    shell \
+    "$(session_config_value VIBE_SESSION_AI_RIGHT_WIDTH 40)" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_AI_TOP_LEFT_CMD @yazi)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_AI_TOP_RIGHT_CMD @git)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_AI_BOTTOM_LEFT_CMD @agent)")" \
+    "$(resolve_session_command "$(session_config_value VIBE_SESSION_AI_BOTTOM_RIGHT_CMD @shell)")"
 }
 
 session_usage_error() {
@@ -1376,6 +1579,8 @@ doctor() {
 
   check_template_store
   check_file "tmux config" "$HOME/.tmux.conf"
+  check_file "session config" "$KIT_DIR/session.conf"
+  check_file "session config example" "$KIT_DIR/session.conf.example"
   check_file "ghostty config" "$CONFIG_DIR/ghostty/config"
   check_file "yazi config" "$CONFIG_DIR/yazi/yazi.toml"
   check_file "yazi package" "$CONFIG_DIR/yazi/package.toml"

@@ -20,6 +20,7 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 - A coding-first workflow centered on `yazi`, `tmux`, `nvim`, `ripgrep`, and `lazygit`
 - Ready-to-use terminal defaults for `ghostty`, `tmux`, and `yazi`
 - Shell helpers like `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y`
+- User-overridable session layouts via `~/.config/vibe-cli-kit/session.conf`
 - Localized cheatsheets in English, Simplified Chinese, and Japanese
 - Cross-platform installer with `brew` / `apt`
 - Built-in template store plus `v doctor` / `v backup` / `v diff` / `v sync` / `v update` / `v project` / `v session`

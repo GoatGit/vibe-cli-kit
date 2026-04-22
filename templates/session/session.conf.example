@@ -1,0 +1,29 @@
+# Copy this file to ~/.config/vibe-cli-kit/session.conf and edit the values you want to override.
+# Supported built-ins:
+#   @yazi @shell @git @agent @dev @test @editor @none
+
+# code: left browser, top-right shell, bottom-right git
+# VIBE_SESSION_CODE_RIGHT_WIDTH=32
+# VIBE_SESSION_CODE_LEFT_CMD='@yazi'
+# VIBE_SESSION_CODE_RIGHT_TOP_CMD='@shell'
+# VIBE_SESSION_CODE_RIGHT_BOTTOM_CMD='@git'
+
+# backend: left server, top-right tests, bottom-right git
+# VIBE_SESSION_BACKEND_RIGHT_WIDTH=35
+# VIBE_SESSION_BACKEND_LEFT_CMD='@dev'
+# VIBE_SESSION_BACKEND_RIGHT_TOP_CMD='@test'
+# VIBE_SESSION_BACKEND_RIGHT_BOTTOM_CMD='@git'
+
+# frontend: left browser, top-right dev, bottom-right git
+# VIBE_SESSION_FRONTEND_RIGHT_WIDTH=35
+# VIBE_SESSION_FRONTEND_LEFT_CMD='@yazi'
+# VIBE_SESSION_FRONTEND_RIGHT_TOP_CMD='@dev'
+# VIBE_SESSION_FRONTEND_RIGHT_BOTTOM_CMD='@git'
+
+# ai: top-left yazi, top-right git, bottom-left ai, bottom-right shell
+# Right column width in percent.
+# VIBE_SESSION_AI_RIGHT_WIDTH=40
+# VIBE_SESSION_AI_TOP_LEFT_CMD='@yazi'
+# VIBE_SESSION_AI_TOP_RIGHT_CMD='@git'
+# VIBE_SESSION_AI_BOTTOM_LEFT_CMD='@agent'
+# VIBE_SESSION_AI_BOTTOM_RIGHT_CMD='@shell'

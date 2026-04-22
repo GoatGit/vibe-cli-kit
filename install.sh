@@ -423,6 +423,7 @@ install_configs() {
   ensure_dir "$TEMPLATE_STORE_DIR/bin"
   ensure_dir "$TEMPLATE_STORE_DIR/cheatsheets"
   ensure_dir "$TEMPLATE_STORE_DIR/ghostty"
+  ensure_dir "$TEMPLATE_STORE_DIR/session"
   ensure_dir "$TEMPLATE_STORE_DIR/shell"
   ensure_dir "$TEMPLATE_STORE_DIR/tmux"
   ensure_dir "$TEMPLATE_STORE_DIR/yazi"
@@ -448,10 +449,18 @@ install_configs() {
   run_cmd cp "$TEMPLATE_DIR/bin/e" "$TEMPLATE_STORE_DIR/bin/e"
   run_cmd cp "$TEMPLATE_DIR/bin/fif" "$TEMPLATE_STORE_DIR/bin/fif"
   run_cmd cp "$TEMPLATE_DIR/ghostty/config" "$TEMPLATE_STORE_DIR/ghostty/config"
+  run_cmd cp "$TEMPLATE_DIR/session/session.conf.example" "$TEMPLATE_STORE_DIR/session/session.conf.example"
   run_cmd cp "$TEMPLATE_DIR/shell/zshrc.snippet" "$TEMPLATE_STORE_DIR/shell/zshrc.snippet"
   run_cmd cp "$TEMPLATE_DIR/tmux/tmux.conf" "$TEMPLATE_STORE_DIR/tmux/tmux.conf"
   run_cmd cp "$TEMPLATE_DIR/yazi/yazi.toml" "$TEMPLATE_STORE_DIR/yazi/yazi.toml"
   run_cmd cp "$TEMPLATE_DIR/yazi/package.toml" "$TEMPLATE_STORE_DIR/yazi/package.toml"
+
+  if [ ! -f "$KIT_DIR/session.conf" ]; then
+    run_cmd cp "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf"
+  fi
+  if [ ! -f "$KIT_DIR/session.conf.example" ]; then
+    run_cmd cp "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf.example"
+  fi
 
   for cheatsheet in "$TEMPLATE_DIR"/cheatsheets/*.md; do
     run_cmd cp "$cheatsheet" "$TEMPLATE_STORE_DIR/cheatsheets/"

@@ -127,6 +127,7 @@ sh install.sh --help
 - `~/.local/bin/v`
 - `~/.local/bin/e`
 - `~/.local/bin/fif`
+- `~/.config/vibe-cli-kit/session.conf.example`
 - `~/.config/vibe-cli-kit/templates/`
 
 并更新 `~/.zshrc` 中的受管配置块：
@@ -187,6 +188,7 @@ glow README.zh-CN.md         # 用 glow 阅读 README
 - `v session backend`：创建或复用后端工作区
 - `v session frontend`：创建或复用前端工作区
 - `v session ai`：创建或复用 AI 工作区
+- `v session ... --reset`：按当前布局从头重建指定 session
 - `v sync --only yazi`：只同步 Yazi 配置
 - `v sync --mode backup`：同步前自动备份旧文件
 - `e`：模糊选文件并用 `nvim` 打开
@@ -195,6 +197,7 @@ glow README.zh-CN.md         # 用 glow 阅读 README
 - `fif`：进入交互式全文搜索
 - `p`：从常见项目目录中模糊选择项目并切换过去
 - `p vibe-cli-kit`：优先用 `zoxide` 或项目目录匹配跳转
+- 可将 `~/.config/vibe-cli-kit/session.conf.example` 复制为 `~/.config/vibe-cli-kit/session.conf`，覆盖 session 的 pane 比例和命令
 
 ### Yazi
 
