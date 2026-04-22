@@ -30,6 +30,8 @@ FAIL_COUNT=0
 usage() {
   cat <<'EOF'
 Usage:
+  v
+  v [--lang en|zh-CN|ja]
   v doctor
   v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
   v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
@@ -39,6 +41,19 @@ Usage:
   v project
   v --help
 EOF
+}
+
+open_cheatsheet() {
+  if command -v terminal-cheatsheet >/dev/null 2>&1; then
+    exec terminal-cheatsheet "$@"
+  fi
+
+  if [ -x "$LOCAL_BIN_DIR/terminal-cheatsheet" ]; then
+    exec "$LOCAL_BIN_DIR/terminal-cheatsheet" "$@"
+  fi
+
+  printf 'terminal-cheatsheet not found\n' >&2
+  exit 1
 }
 
 session_help() {
@@ -1356,7 +1371,14 @@ doctor() {
   fi
 }
 
+if [ "$#" -eq 0 ]; then
+  open_cheatsheet
+fi
+
 case "${1:-}" in
+  --lang)
+    open_cheatsheet "$@"
+    ;;
   doctor)
     shift
     [ "$#" -eq 0 ] || {

@@ -49,6 +49,27 @@ detect_macos_appearance() {
   printf '%s\n' "$appearance"
 }
 
+detect_ghostty_theme_mode() {
+  ghostty_config="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config"
+  [ -f "$ghostty_config" ] || return 1
+
+  theme_name="$(awk -F '=' '/^[[:space:]]*theme[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print tolower($2); exit}' "$ghostty_config")"
+  [ -n "$theme_name" ] || return 1
+
+  case "$theme_name" in
+    *latte*|*light*|*day*|*github-light*)
+      printf 'light\n'
+      return 0
+      ;;
+    *mocha*|*macchiato*|*frappe*|*dark*|*night*|*nord*|*dracula*|*tokyo*|*gruvbox*|*onedark*|*onehalfdark*|*catppuccin*)
+      printf 'dark\n'
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
 detect_bat_theme() {
   if [ -n "${VIBE_CLI_KIT_BAT_THEME:-}" ]; then
     printf '%s\n' "$VIBE_CLI_KIT_BAT_THEME"
@@ -60,9 +81,22 @@ detect_bat_theme() {
     return 0
   fi
 
+  if [ "${TERM_PROGRAM:-}" = "ghostty" ]; then
+    case "$(detect_ghostty_theme_mode 2>/dev/null || true)" in
+      dark)
+        printf 'OneHalfDark\n'
+        return 0
+        ;;
+      light)
+        printf 'GitHub\n'
+        return 0
+        ;;
+    esac
+  fi
+
   if [ "$(uname -s 2>/dev/null || true)" = "Darwin" ]; then
     if [ "$(detect_macos_appearance 2>/dev/null || true)" = "Dark" ]; then
-      printf 'Nord\n'
+      printf 'OneHalfDark\n'
       return 0
     fi
     printf 'GitHub\n'
@@ -75,12 +109,12 @@ detect_bat_theme() {
       return 0
       ;;
     *';8'|*';9'|*';10'|*';11'|*';12'|*';13'|*';14'|*';15')
-      printf 'Nord\n'
+      printf 'OneHalfDark\n'
       return 0
       ;;
   esac
 
-  printf 'Nord\n'
+  printf 'OneHalfDark\n'
 }
 
 detect_lang() {

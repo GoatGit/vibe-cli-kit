@@ -4,7 +4,7 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, r
 
 ## High Frequency
 
-- `hk`: open this cheatsheet
+- `v`: open this cheatsheet with no arguments
 - `v doctor`: check tool/config health
 - `v project`: detect project type and suggested commands
 - `v session code`: open the `code` workspace
@@ -20,7 +20,7 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, r
 
 ## Shell
 
-- `hk` / `hotkeys`: open the cheatsheet
+- `v` / `hk` / `hotkeys`: open the cheatsheet
 - `v doctor`: check installation and config health
 - `v backup --only tmux`: back up current tmux config
 - `v diff --only tmux`: compare deployed config against templates

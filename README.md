@@ -19,7 +19,7 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 - A pragmatic terminal baseline instead of a giant personal framework
 - A coding-first workflow centered on `yazi`, `tmux`, `nvim`, `ripgrep`, and `lazygit`
 - Ready-to-use terminal defaults for `ghostty`, `tmux`, and `yazi`
-- Shell helpers like `hk` `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y`
+- Shell helpers like `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y`
 - Localized cheatsheets in English, Simplified Chinese, and Japanese
 - Cross-platform installer with `brew` / `apt`
 - Built-in template store plus `v doctor` / `v backup` / `v diff` / `v sync` / `v update` / `v project` / `v session`
@@ -32,7 +32,7 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 sh install.sh
 source ~/.zshrc
 
-hk                           # open the local cheatsheet
+v                            # open the local cheatsheet
 v doctor                     # check tools and config status
 v backup --only tmux         # back up tmux config only
 v diff --only tmux           # compare tmux template and deployed config
@@ -65,4 +65,4 @@ nvim .                       # open current directory
 - Supported package managers: Homebrew, apt
 - `ghostty` is only auto-installed on macOS
 - Cheatsheets are installed in English, Simplified Chinese, and Japanese
-- `hk` / `terminal-cheatsheet` can auto-select language or accept `--lang`
+- `v` / `terminal-cheatsheet` can auto-select language or accept `--lang`

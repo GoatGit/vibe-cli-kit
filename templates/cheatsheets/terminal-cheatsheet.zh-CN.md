@@ -4,7 +4,7 @@
 
 ## 高频命令
 
-- `hk`：打开这份速查表
+- `v`：无参数打开这份速查表
 - `v doctor`：检查工具和配置状态
 - `v project`：识别当前项目类型和建议命令
 - `v session code`：打开 `code` 工作区
@@ -20,7 +20,7 @@
 
 ## Shell
 
-- `hk` / `hotkeys`：打开速查表
+- `v` / `hk` / `hotkeys`：打开速查表
 - `v doctor`：检查安装和配置状态
 - `v backup --only tmux`：备份当前 tmux 配置
 - `v diff --only tmux`：看模板和当前配置差异

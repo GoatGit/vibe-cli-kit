@@ -14,7 +14,7 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 - Stay light instead of becoming a giant dotfiles framework
 - Focus on coding flow, not on collecting tools for their own sake
 - Set up `ghostty`, `tmux`, and `yazi` with sane defaults
-- Add helper commands like `hk`, `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `y`
+- Add helper commands like `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `y`
 - Support `brew` and `apt`
 - Include a local template store with `v doctor`, `v backup`, `v diff`, `v sync`, `v update`, `v project`, and `v session`
 - Adapt by system and skip unavailable tools cleanly
@@ -26,7 +26,7 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 sh install.sh
 source ~/.zshrc
 
-hk
+v
 v doctor
 v backup --only tmux
 v diff --only tmux
@@ -136,7 +136,7 @@ It also updates a managed block in `~/.zshrc`:
 
 ```sh
 source ~/.zshrc
-hk                           # open the local cheatsheet
+v                            # open the local cheatsheet
 v doctor                     # check tools and config status
 v backup --only tmux         # back up tmux config only
 v diff --only tmux           # compare tmux template and deployed config
@@ -209,8 +209,7 @@ glow README.en.md            # read the README with glow
 
 ### Cheatsheet
 
-- `hk`
-- `hotkeys`
+- `v`
 - `v doctor`
 - `v backup --only tmux`
 - `v diff --only tmux`
@@ -231,7 +230,7 @@ Both open the localized cheatsheet. Language is selected from:
 You can also override it manually:
 
 ```sh
-VIBE_CLI_KIT_LANG=ja hk
+VIBE_CLI_KIT_LANG=ja v
 terminal-cheatsheet --lang en
 terminal-cheatsheet --lang zh-CN
 terminal-cheatsheet --lang ja
@@ -456,7 +455,7 @@ export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"
 
 ## Notes
 
-- `hk` prefers `bat`; falls back to `less`
+- `v` prefers `bat`; falls back to `less`
 - `vim` is aliased to `nvim`
 - `--only-config` skips package installation
 - `--dry-run` prints actions without changing the system

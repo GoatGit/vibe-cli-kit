@@ -4,7 +4,7 @@
 
 ## High Frequency
 
-- `hk`：このチートシートを開く
+- `v`：引数なしでこのチートシートを開く
 - `v doctor`：ツールと設定の状態を確認
 - `v project`：プロジェクト種別と推奨コマンドを表示
 - `v session code`：`code` workspace を開く
@@ -20,7 +20,7 @@
 
 ## Shell
 
-- `hk` / `hotkeys`：チートシートを開く
+- `v` / `hk` / `hotkeys`：チートシートを開く
 - `v doctor`：インストールと設定の状態を確認
 - `v backup --only tmux`：現在の tmux 設定を退避
 - `v diff --only tmux`：テンプレートとの差分を確認
