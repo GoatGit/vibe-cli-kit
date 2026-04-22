@@ -17,6 +17,7 @@ DIFF_TARGET=all
 UPDATE_DRY_RUN=0
 UPDATE_SYNC=1
 BACKUP_TARGET=all
+SESSION_RESET=0
 
 UPDATED_COUNT=0
 UPDATED_ITEMS=
@@ -37,7 +38,7 @@ Usage:
   v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell]
   v sync [--dry-run] [--only all|ghostty|yazi|tmux|cheatsheets|bin|shell] [--mode overwrite|skip|backup]
   v update [--dry-run] [--no-sync]
-  v session [code|backend|frontend|ai] [--name SESSION]
+  v session [code|backend|frontend|ai] [--name SESSION] [--reset]
   v project
   v --help
 EOF
@@ -59,7 +60,7 @@ open_cheatsheet() {
 session_help() {
   cat <<'EOF'
 Usage:
-  v session [code|backend|frontend|ai] [--name SESSION]
+  v session [code|backend|frontend|ai] [--name SESSION] [--reset]
 
 Layouts:
   code
@@ -85,9 +86,9 @@ Layouts:
 
   ai
   +---------------------------+-------------+
-  | yazi                      | agent       |
-  |                           +-------------+
-  |                           | shell       |
+  | yazi                      | git         |
+  +---------------------------+-------------+
+  | ai                        | shell       |
   +---------------------------+-------------+
 
 Naming:
@@ -95,12 +96,17 @@ Naming:
   others    -> current-directory-layout
   override  -> --name SESSION
 
+Behavior:
+  existing session -> reuse by default
+  --reset          -> recreate the target session from scratch
+
 Examples:
   v session code
   v session backend
   v session frontend
   v session ai
   v session ai --name vibe-ai
+  v session ai --name vibe-ai --reset
 EOF
 }
 
@@ -1280,14 +1286,17 @@ create_frontend_session() {
 create_ai_session() {
   session_name="$1"
   tmux new-session -d -s "$session_name" -c "$PWD" -n ai
-  tmux split-window -h -p 35 -t "$session_name:1" -c "$PWD"
-  tmux split-window -v -p 50 -t "$session_name:1.2" -c "$PWD"
-  tmux select-layout -t "$session_name:1" main-vertical
-  tmux select-pane -t "$session_name:1.1" -T browser
-  tmux select-pane -t "$session_name:1.2" -T agent
-  tmux select-pane -t "$session_name:1.3" -T shell
-  tmux_send_if_command "$session_name:1.1" "yazi"
-  tmux_send_if_command "$session_name:1.2" "$(agent_command)"
+  top_left_pane="$(tmux display-message -p -t "$session_name:1.1" '#{pane_id}')"
+  top_right_pane="$(tmux split-window -h -p 40 -t "$top_left_pane" -c "$PWD" -P -F '#{pane_id}')"
+  bottom_left_pane="$(tmux split-window -v -p 50 -t "$top_left_pane" -c "$PWD" -P -F '#{pane_id}')"
+  bottom_right_pane="$(tmux split-window -v -p 50 -t "$top_right_pane" -c "$PWD" -P -F '#{pane_id}')"
+  tmux select-pane -t "$top_left_pane" -T yazi
+  tmux select-pane -t "$top_right_pane" -T git
+  tmux select-pane -t "$bottom_left_pane" -T ai
+  tmux select-pane -t "$bottom_right_pane" -T shell
+  tmux_send_if_command "$top_left_pane" "yazi"
+  tmux_send_if_command "$top_right_pane" "$(git_command)"
+  tmux_send_if_command "$bottom_left_pane" "$(agent_command)"
 }
 
 session_usage_error() {
@@ -1315,6 +1324,7 @@ session_command() {
 
   layout="code"
   session_name=
+  SESSION_RESET=0
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -1330,6 +1340,9 @@ session_command() {
         [ "$#" -gt 0 ] || session_usage_error
         session_name="$1"
         ;;
+      --reset)
+        SESSION_RESET=1
+        ;;
       *)
         session_usage_error
         ;;
@@ -1344,8 +1357,13 @@ session_command() {
   fi
 
   if tmux has-session -t "$session_name" 2>/dev/null; then
-    printf 'ok    reuse session %s\n' "$session_name"
-    tmux_attach_session "$session_name"
+    if [ "$SESSION_RESET" -eq 1 ]; then
+      printf 'ok    reset session %s\n' "$session_name"
+      tmux kill-session -t "$session_name"
+    else
+      printf 'ok    reuse session %s\n' "$session_name"
+      tmux_attach_session "$session_name"
+    fi
   fi
 
   printf 'ok    create %s session %s\n' "$layout" "$session_name"
