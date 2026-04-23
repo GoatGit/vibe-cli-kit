@@ -36,6 +36,20 @@ assert_contains() {
   esac
 }
 
+assert_not_contains() {
+  haystack="$1"
+  needle="$2"
+  context="$3"
+  case "$haystack" in
+    *"$needle"*)
+      printf 'assertion failed: expected [%s] to be absent in [%s]\n' "$needle" "$context" >&2
+      return 1
+      ;;
+    *)
+      ;;
+  esac
+}
+
 make_test_bin() {
   bin_dir="$1"
   mkdir -p "$bin_dir"
@@ -317,6 +331,110 @@ esac'
     assert_contains "$log_contents" "send-keys -t %3 echo bottom-right C-m" "ai bottom-right command"
 }
 
+test_sync_session_preserves_user_overrides() {
+  workdir="$TEST_ROOT/sync-session"
+  home_dir="$workdir/home"
+  config_dir="$home_dir/.config"
+  kit_dir="$config_dir/vibe-cli-kit"
+  mkdir -p "$kit_dir/templates/session"
+
+  cp "$REPO_ROOT/templates/session/session.conf.example" "$kit_dir/templates/session/session.conf.example"
+  cat >"$kit_dir/session.conf" <<'EOF'
+VIBE_SESSION_AI_RIGHT_WIDTH=99
+EOF
+  cat >"$kit_dir/session.conf.example" <<'EOF'
+# stale example
+EOF
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" sync --only session
+  )"
+
+  session_contents="$(cat "$kit_dir/session.conf")"
+  example_contents="$(cat "$kit_dir/session.conf.example")"
+
+  assert_contains "$output" "skip  $kit_dir/session.conf" "session.conf preserved during sync" &&
+    assert_contains "$output" "sync  $kit_dir/session.conf.example" "session.conf.example refreshed during sync" &&
+    assert_contains "$session_contents" "VIBE_SESSION_AI_RIGHT_WIDTH=99" "session override retained" &&
+    assert_contains "$example_contents" "VIBE_SESSION_AI_RIGHT_WIDTH=40" "session example refreshed from template"
+}
+
+test_backup_uses_unique_directory_per_run() {
+  workdir="$TEST_ROOT/backup-unique"
+  home_dir="$workdir/home"
+  config_dir="$home_dir/.config"
+  kit_dir="$config_dir/vibe-cli-kit"
+  bin_dir="$workdir/bin"
+  make_test_bin "$bin_dir"
+  mkdir -p "$kit_dir"
+
+  cat >"$kit_dir/session.conf" <<'EOF'
+first backup
+EOF
+
+  write_script "$bin_dir/date" '#!/bin/sh
+printf "20260423-120000\n"'
+
+  output_one="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" backup --only session
+  )"
+
+  cat >"$kit_dir/session.conf" <<'EOF'
+second backup
+EOF
+
+  output_two="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" backup --only session
+  )"
+
+  first_dir="$kit_dir/backups/20260423-120000"
+  second_dir="$kit_dir/backups/20260423-120000-1"
+  first_backup="$(cat "$first_dir/session/session.conf")"
+  second_backup="$(cat "$second_dir/session/session.conf")"
+
+  assert_contains "$output_one" "dir=$first_dir" "first backup dir" &&
+    assert_contains "$output_two" "dir=$second_dir" "second backup dir" &&
+    assert_contains "$first_backup" "first backup" "first backup preserved" &&
+    assert_contains "$second_backup" "second backup" "second backup isolated"
+}
+
+test_project_ignores_non_script_package_keys() {
+  workdir="$TEST_ROOT/project-non-scripts"
+  home_dir="$workdir/home"
+  project_dir="$workdir/project"
+  mkdir -p "$home_dir/.config" "$project_dir"
+
+  cat >"$project_dir/package.json" <<'EOF'
+{
+  "name": "demo-node",
+  "config": {
+    "test": "not-a-script"
+  }
+}
+EOF
+
+  output="$(
+    cd "$project_dir"
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    PATH="/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" project
+  )"
+
+  assert_contains "$output" "type: node" "node type from package.json" &&
+    assert_contains "$output" "test: (no default suggestion)" "no synthetic test command" &&
+    assert_not_contains "$output" "npm run test" "ignore non-script package keys"
+}
+
 test_install_dry_run_config() {
   workdir="$TEST_ROOT/install-dry-run"
   home_dir="$workdir/home"
@@ -342,6 +460,9 @@ run_test "v project detects nextjs and best test script" test_project_detection_
 run_test "v project detects django" test_project_detection_django
 run_test "v project detects docker compose" test_project_detection_docker_compose
 run_test "v session ai reads session.conf overrides" test_session_config_ai_layout
+run_test "v sync preserves user-owned session overrides" test_sync_session_preserves_user_overrides
+run_test "v backup creates a unique directory per run" test_backup_uses_unique_directory_per_run
+run_test "v project ignores non-script package.json keys" test_project_ignores_non_script_package_keys
 run_test "install.sh dry-run exposes session example copy" test_install_dry_run_config
 
 printf '\nSummary: pass=%s fail=%s\n' "$PASS_COUNT" "$FAIL_COUNT"

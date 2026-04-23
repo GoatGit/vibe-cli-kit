@@ -332,8 +332,20 @@ sync_tmux() {
   copy_file "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf"
 }
 
+copy_file_if_missing() {
+  src="$1"
+  dest="$2"
+
+  if [ -f "$dest" ]; then
+    printf 'skip  %s\n' "$dest"
+    return 0
+  fi
+
+  copy_file "$src" "$dest"
+}
+
 sync_session() {
-  copy_file "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf"
+  copy_file_if_missing "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf"
   copy_file "$TEMPLATE_DIR/session/session.conf.example" "$KIT_DIR/session.conf.example"
 }
 
@@ -453,7 +465,26 @@ ensure_template_store() {
 }
 
 backup_root_dir() {
-  printf '%s/backups/%s\n' "$KIT_DIR" "$(date +%Y%m%d-%H%M%S)"
+  base_dir="$KIT_DIR/backups"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  suffix=0
+
+  mkdir -p "$base_dir"
+
+  while :; do
+    if [ "$suffix" -eq 0 ]; then
+      candidate="$base_dir/$timestamp"
+    else
+      candidate="$base_dir/$timestamp-$suffix"
+    fi
+
+    if mkdir "$candidate" 2>/dev/null; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+
+    suffix=$((suffix + 1))
+  done
 }
 
 backup_copy_file() {
@@ -554,7 +585,6 @@ parse_backup_args() {
 backup_configs() {
   parse_backup_args "$@"
   root="$(backup_root_dir)"
-  mkdir -p "$root"
   printf 'vibe-cli-kit backup\n'
   printf 'target=%s\n' "$BACKUP_TARGET"
   printf 'dir=%s\n\n' "$root"
@@ -1107,14 +1137,74 @@ detect_node_runner() {
 
 package_has_script() {
   script_name="$1"
-  [ -f package.json ] || return 1
-  grep -Eq "\"$script_name\"[[:space:]]*:" package.json
+  package_scripts | grep -Fxq "$script_name"
 }
 
 package_scripts() {
   [ -f package.json ] || return 1
-  grep -E "\"[^\"]+\"[[:space:]]*:" package.json | \
-    sed -E 's/^[[:space:]]*"([^"]+)"[[:space:]]*:.*/\1/'
+
+  if command_exists python3; then
+    python3 - <<'PY' 2>/dev/null || return 1
+import json
+
+with open("package.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+scripts = data.get("scripts", {})
+if isinstance(scripts, dict):
+    for name in scripts:
+        print(name)
+PY
+    return 0
+  fi
+
+  if command_exists python; then
+    python - <<'PY' 2>/dev/null || return 1
+import json
+
+with open("package.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+scripts = data.get("scripts", {})
+if isinstance(scripts, dict):
+    for name in scripts:
+        print(name)
+PY
+    return 0
+  fi
+
+  if command_exists node; then
+    node -e 'const fs=require("fs"); const data=JSON.parse(fs.readFileSync("package.json","utf8")); const scripts=data && data.scripts; if (scripts && typeof scripts==="object" && !Array.isArray(scripts)) { for (const name of Object.keys(scripts)) console.log(name); }' 2>/dev/null || return 1
+    return 0
+  fi
+
+  awk '
+    BEGIN {
+      in_scripts = 0
+      depth = 0
+    }
+    {
+      line = $0
+      if (!in_scripts) {
+        if (line ~ /"scripts"[[:space:]]*:[[:space:]]*{/) {
+          in_scripts = 1
+          depth = 1
+        }
+        next
+      }
+
+      if (match(line, /^[[:space:]]*"([^"]+)"[[:space:]]*:/, parts)) {
+        print parts[1]
+      }
+
+      opens = gsub(/{/, "{", line)
+      closes = gsub(/}/, "}", line)
+      depth += opens - closes
+      if (depth <= 0) {
+        exit
+      }
+    }
+  ' package.json
 }
 
 package_first_script_matching() {
