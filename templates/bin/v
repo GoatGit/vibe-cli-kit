@@ -42,6 +42,7 @@ Usage:
   v update [--dry-run] [--no-sync]
   v session [code|backend|frontend|ai] [--name SESSION] [--reset]
   v project
+  v r --port PORT [--wait SECONDS] [--] [COMMAND...]
   v --help
 EOF
 }
@@ -122,6 +123,26 @@ Output:
   - detected project type
   - preferred package runner
   - suggested dev / test commands
+EOF
+}
+
+restart_help() {
+  cat <<'EOF'
+Usage:
+  v r PORT [COMMAND...]
+  v r --port PORT [--wait SECONDS] [--] [COMMAND...]
+
+Behavior:
+  - finds processes listening on PORT and stops them before starting the next command
+  - when COMMAND is omitted, uses the current project's suggested dev command
+  - when auto-detection cannot find a startup command, prints actionable hints
+  - accepts PORT as a positional argument, via --port, or from the current shell environment
+
+Examples:
+  v r 3000
+  v r 3000 pnpm dev
+  PORT=8000 v r -- uv run uvicorn app.main:app --reload
+  v r --port 5173
 EOF
 }
 
@@ -1212,6 +1233,26 @@ package_first_script_matching() {
   package_scripts | grep -E "$pattern" | head -n 1
 }
 
+package_scripts_inline() {
+  scripts="$(package_scripts 2>/dev/null || true)"
+  [ -n "$scripts" ] || return 0
+
+  OLD_IFS=$IFS
+  IFS='
+'
+  output=
+  for script_name in $scripts; do
+    [ -n "$script_name" ] || continue
+    if [ -z "$output" ]; then
+      output="$script_name"
+    else
+      output="$output, $script_name"
+    fi
+  done
+  IFS=$OLD_IFS
+  printf '%s\n' "$output"
+}
+
 package_best_test_script() {
   package_scripts | while IFS= read -r script_name; do
     case "$script_name" in
@@ -1422,6 +1463,220 @@ project_command() {
   else
     printf 'test: (no default suggestion)\n'
   fi
+}
+
+restart_detection_hint() {
+  project_type="$(detect_project_type)"
+  runner="$(project_runner_label)"
+  scripts_inline="$(package_scripts_inline)"
+
+  printf 'fail  no command provided and no default dev command detected\n' >&2
+  printf 'hint  detected project type: %s\n' "$project_type" >&2
+  printf 'hint  preferred runner: %s\n' "$runner" >&2
+
+  case "$project_type" in
+    nextjs|vite|nestjs|node)
+      if [ -n "$scripts_inline" ]; then
+        printf 'hint  package.json scripts: %s\n' "$scripts_inline" >&2
+        printf 'hint  add a standard script such as "dev", "start:dev", or "start", or run:\n' >&2
+      else
+        printf 'hint  package.json found, but no runnable scripts were detected\n' >&2
+        printf 'hint  add a standard script such as "dev", "start:dev", or "start", or run:\n' >&2
+      fi
+      printf 'hint    v r --port %s -- <your-start-command>\n' "$port" >&2
+      ;;
+    python|fastapi|django)
+      printf 'hint  python project detected, but no default entrypoint matched\n' >&2
+      printf 'hint  supported defaults include manage.py, main.py, and app/main.py\n' >&2
+      printf 'hint  otherwise run:\n' >&2
+      printf 'hint    v r --port %s -- <your-start-command>\n' "$port" >&2
+      ;;
+    rust|rust-workspace|go|go-workspace|docker-compose)
+      printf 'hint  project type was detected, but no safe default startup command is configured here\n' >&2
+      printf 'hint  run the command explicitly, for example:\n' >&2
+      printf 'hint    v r --port %s -- <your-start-command>\n' "$port" >&2
+      ;;
+    generic)
+      printf 'hint  no supported project markers were found in the current directory\n' >&2
+      printf 'hint  try running from the project root, or run the command explicitly:\n' >&2
+      printf 'hint    v r --port %s -- <your-start-command>\n' "$port" >&2
+      ;;
+    *)
+      printf 'hint  run the command explicitly:\n' >&2
+      printf 'hint    v r --port %s -- <your-start-command>\n' "$port" >&2
+      ;;
+  esac
+
+  printf 'hint  inspect the current detection with: v project\n' >&2
+}
+
+is_valid_port() {
+  case "$1" in
+    ''|*[!0-9]*)
+      return 1
+      ;;
+    *)
+      [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+      ;;
+  esac
+}
+
+port_listening_pids() {
+  port="$1"
+
+  if command_exists lsof; then
+    lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk '!seen[$0]++'
+    return 0
+  fi
+
+  if command_exists fuser; then
+    fuser -n tcp "$port" 2>/dev/null | tr ' ' '\n' | awk 'NF && !seen[$0]++ { print }'
+    return 0
+  fi
+
+  printf 'fail  need lsof or fuser to inspect port %s\n' "$port" >&2
+  exit 1
+}
+
+pid_list_is_alive() {
+  for pid in "$@"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+kill_port_processes() {
+  port="$1"
+  wait_seconds="$2"
+  pid_lines="$(port_listening_pids "$port")"
+
+  if [ -z "$pid_lines" ]; then
+    printf 'ok    port %s already free\n' "$port"
+    return 0
+  fi
+
+  OLD_IFS=$IFS
+  IFS='
+'
+  set -- $pid_lines
+  IFS=$OLD_IFS
+
+  printf 'ok    stop port %s: %s\n' "$port" "$*"
+
+  for pid in "$@"; do
+    kill "$pid" 2>/dev/null || true
+  done
+
+  remaining="$wait_seconds"
+  while [ "$remaining" -gt 0 ]; do
+    if ! pid_list_is_alive "$@"; then
+      printf 'ok    port %s released\n' "$port"
+      return 0
+    fi
+    sleep 1
+    remaining=$((remaining - 1))
+  done
+
+  if pid_list_is_alive "$@"; then
+    printf 'warn  force kill port %s: %s\n' "$port" "$*"
+    for pid in "$@"; do
+      kill -9 "$pid" 2>/dev/null || true
+    done
+  fi
+
+  if pid_list_is_alive "$@"; then
+    printf 'fail  port %s still busy after kill: %s\n' "$port" "$*" >&2
+    exit 1
+  fi
+
+  printf 'ok    port %s released\n' "$port"
+}
+
+restart_command() {
+  port="${PORT:-}"
+  wait_seconds=3
+  port_from_positional=0
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -h|--help|help)
+        restart_help
+        exit 0
+        ;;
+      --port)
+        shift
+        [ "$#" -gt 0 ] || {
+          restart_help >&2
+          exit 1
+        }
+        port="$1"
+        ;;
+      --wait)
+        shift
+        [ "$#" -gt 0 ] || {
+          restart_help >&2
+          exit 1
+        }
+        wait_seconds="$1"
+        ;;
+      --)
+        shift
+        break
+        ;;
+      [0-9]*)
+        if [ "$port_from_positional" -eq 0 ] && [ -z "${port:-}" ]; then
+          port="$1"
+          port_from_positional=1
+          shift
+          break
+        fi
+        restart_help >&2
+        exit 1
+        ;;
+      *)
+        if [ -n "${port:-}" ]; then
+          break
+        fi
+        restart_help >&2
+        exit 1
+        ;;
+    esac
+    shift
+  done
+
+  is_valid_port "$port" || {
+    printf 'fail  invalid or missing port: %s\n' "${port:-<empty>}" >&2
+    exit 1
+  }
+
+  case "$wait_seconds" in
+    ''|*[!0-9]*)
+      printf 'fail  invalid wait seconds: %s\n' "$wait_seconds" >&2
+      exit 1
+      ;;
+  esac
+
+  if [ "${1:-}" = "--" ]; then
+    shift
+  fi
+
+  kill_port_processes "$port" "$wait_seconds"
+
+  if [ "$#" -gt 0 ]; then
+    printf 'ok    start command: %s\n' "$*"
+    exec "$@"
+  fi
+
+  dev_cmd="$(project_dev_command)"
+  if [ -z "$dev_cmd" ]; then
+    restart_detection_hint
+    exit 1
+  fi
+
+  printf 'ok    start command: %s\n' "$dev_cmd"
+  exec sh -lc "$dev_cmd"
 }
 
 git_command() {
@@ -1742,6 +1997,10 @@ sync)
   project)
     shift
     project_command "$@"
+    ;;
+  r|restart)
+    shift
+    restart_command "$@"
     ;;
   backup)
     shift

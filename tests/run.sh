@@ -435,6 +435,160 @@ EOF
     assert_not_contains "$output" "npm run test" "ignore non-script package keys"
 }
 
+test_restart_kills_port_and_runs_explicit_command() {
+  workdir="$TEST_ROOT/restart-explicit"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  make_test_bin "$bin_dir"
+  mkdir -p "$home_dir/.config"
+
+  write_script "$bin_dir/lsof" '#!/bin/sh
+printf "1111\n2222\n"'
+
+  write_script "$bin_dir/printf-argv" '#!/bin/sh
+printf "CMD:%s\n" "$*"'
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" r --port 3000 -- printf-argv hello world
+  )"
+
+  assert_contains "$output" "ok    stop port 3000: 1111 2222" "restart stops explicit port" &&
+    assert_contains "$output" "ok    port 3000 released" "restart marks port as released" &&
+    assert_contains "$output" "ok    start command: printf-argv hello world" "restart logs explicit command" &&
+    assert_contains "$output" "CMD:hello world" "restart executes explicit command"
+}
+
+test_restart_accepts_positional_port_and_command() {
+  workdir="$TEST_ROOT/restart-positional-command"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  make_test_bin "$bin_dir"
+  mkdir -p "$home_dir/.config"
+
+  write_script "$bin_dir/lsof" '#!/bin/sh
+printf "3333\n"'
+
+  write_script "$bin_dir/printf-argv" '#!/bin/sh
+printf "CMD:%s\n" "$*"'
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" r 3000 printf-argv positional-ok
+  )"
+
+  assert_contains "$output" "ok    stop port 3000: 3333" "restart accepts positional port" &&
+    assert_contains "$output" "ok    start command: printf-argv positional-ok" "restart logs positional command" &&
+    assert_contains "$output" "CMD:positional-ok" "restart executes positional command"
+}
+
+test_restart_uses_detected_project_dev_command() {
+  workdir="$TEST_ROOT/restart-project"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  project_dir="$workdir/project"
+  log_file="$workdir/restart-project.log"
+  make_test_bin "$bin_dir"
+  mkdir -p "$home_dir/.config" "$project_dir"
+
+  cat >"$project_dir/package.json" <<'EOF'
+{
+  "name": "demo-vite",
+  "scripts": {
+    "dev": "printf project-dev\n"
+  }
+}
+EOF
+  : >"$project_dir/pnpm-lock.yaml"
+  : >"$project_dir/vite.config.ts"
+
+  write_script "$bin_dir/lsof" '#!/bin/sh
+exit 0'
+
+  write_script "$bin_dir/pnpm" '#!/bin/sh
+printf "PNPM:%s\n" "$*"'
+
+  output="$(
+    cd "$project_dir"
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" r 5173
+  )"
+
+  assert_contains "$output" "ok    port 5173 already free" "restart detects free port" &&
+    assert_contains "$output" "ok    start command: pnpm dev" "restart chooses detected dev command" &&
+    assert_contains "$output" "PNPM:dev" "restart executes detected dev command"
+}
+
+test_restart_reports_actionable_hints_when_detection_fails() {
+  workdir="$TEST_ROOT/restart-hints"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  project_dir="$workdir/project"
+  make_test_bin "$bin_dir"
+  mkdir -p "$home_dir/.config" "$project_dir"
+
+  cat >"$project_dir/package.json" <<'EOF'
+{
+  "name": "demo-node",
+  "scripts": {
+    "lint": "eslint .",
+    "build": "tsc -p ."
+  }
+}
+EOF
+
+  write_script "$bin_dir/lsof" '#!/bin/sh
+exit 0'
+
+  write_script "$bin_dir/npm" '#!/bin/sh
+exit 0'
+
+  output="$(
+    cd "$project_dir"
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" r 3000 2>&1
+  )" || true
+
+  assert_contains "$output" "fail  no command provided and no default dev command detected" "restart failure summary" &&
+    assert_contains "$output" "hint  detected project type: node" "restart reports project type" &&
+    assert_contains "$output" "hint  preferred runner: npm" "restart reports preferred runner" &&
+    assert_contains "$output" "hint  package.json scripts: lint, build" "restart reports discovered scripts" &&
+    assert_contains "$output" "hint    v r --port 3000 -- <your-start-command>" "restart suggests explicit fallback" &&
+    assert_contains "$output" "hint  inspect the current detection with: v project" "restart suggests project inspection"
+}
+
+test_restart_alias_still_works() {
+  workdir="$TEST_ROOT/restart-alias"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  make_test_bin "$bin_dir"
+  mkdir -p "$home_dir/.config"
+
+  write_script "$bin_dir/lsof" '#!/bin/sh
+exit 0'
+
+  write_script "$bin_dir/printf-argv" '#!/bin/sh
+printf "CMD:%s\n" "$*"'
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" restart --port 3001 -- printf-argv alias-ok
+  )"
+
+  assert_contains "$output" "ok    port 3001 already free" "restart alias detects free port" &&
+    assert_contains "$output" "CMD:alias-ok" "restart alias executes command"
+}
+
 test_install_dry_run_config() {
   workdir="$TEST_ROOT/install-dry-run"
   home_dir="$workdir/home"
@@ -463,6 +617,11 @@ run_test "v session ai reads session.conf overrides" test_session_config_ai_layo
 run_test "v sync preserves user-owned session overrides" test_sync_session_preserves_user_overrides
 run_test "v backup creates a unique directory per run" test_backup_uses_unique_directory_per_run
 run_test "v project ignores non-script package.json keys" test_project_ignores_non_script_package_keys
+run_test "v restart kills the old process before running an explicit command" test_restart_kills_port_and_runs_explicit_command
+run_test "v restart accepts a positional port and command" test_restart_accepts_positional_port_and_command
+run_test "v restart falls back to the detected project dev command" test_restart_uses_detected_project_dev_command
+run_test "v restart explains what to do when auto detection fails" test_restart_reports_actionable_hints_when_detection_fails
+run_test "v restart alias remains supported" test_restart_alias_still_works
 run_test "install.sh dry-run exposes session example copy" test_install_dry_run_config
 
 printf '\nSummary: pass=%s fail=%s\n' "$PASS_COUNT" "$FAIL_COUNT"
