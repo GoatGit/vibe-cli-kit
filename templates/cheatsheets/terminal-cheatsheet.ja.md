@@ -7,6 +7,7 @@
 - `v`：引数なしでこのチートシートを開く
 - `v doctor`：ツールと設定の状態を確認
 - `v project`：プロジェクト種別と推奨コマンドを表示
+- `v r 3000`：ポートを解放して現在のプロジェクトを再起動
 - `v session code`：`code` workspace を開く
 - `e`：ファイルをあいまい選択して `nvim` で開く
 - `fif tmux`：内容検索してヒット位置へ移動
@@ -27,6 +28,7 @@
 - `v sync --dry-run --only tmux`：tmux 設定同期をプレビュー
 - `v update --dry-run --no-sync`：ツール更新だけをプレビュー
 - `v project`：現在のプロジェクト種別と推奨コマンドを表示
+- `v r 3000`：ポートを解放して検出した起動コマンドを実行
 - `v session code|backend|frontend|ai`：workspace を作成または再利用
 - `p`：プロジェクトディレクトリへ移動
 - `ll`：`lsd -lah`

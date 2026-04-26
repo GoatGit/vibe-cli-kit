@@ -7,6 +7,7 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, r
 - `v`: open this cheatsheet with no arguments
 - `v doctor`: check tool/config health
 - `v project`: detect project type and suggested commands
+- `v r 3000`: free the port and restart the current project
 - `v session code`: open the `code` workspace
 - `e`: fuzzy-open a file in `nvim`
 - `fif tmux`: search content and open the match
@@ -27,6 +28,7 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, r
 - `v sync --dry-run --only tmux`: preview tmux config sync
 - `v update --dry-run --no-sync`: preview package updates only
 - `v project`: detect the current project type and suggested commands
+- `v r 3000`: free the port and run the detected project start command
 - `v session code|backend|frontend|ai`: create or reuse workspaces
 - `p`: jump to a project directory
 - `ll`: same as `lsd -lah`

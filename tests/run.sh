@@ -114,6 +114,16 @@ printf "CHEATSHEET:%s\n" "$*"'
   assert_contains "$output" "CHEATSHEET:--lang ja" "v --lang passthrough"
 }
 
+test_cheatsheets_document_restart_shortcut() {
+  zh_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.zh-CN.md")"
+  en_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.en.md")"
+  ja_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.ja.md")"
+
+  assert_contains "$zh_contents" '`v r 3000`' "zh cheatsheet restart shortcut" &&
+    assert_contains "$en_contents" '`v r 3000`' "en cheatsheet restart shortcut" &&
+    assert_contains "$ja_contents" '`v r 3000`' "ja cheatsheet restart shortcut"
+}
+
 test_terminal_theme_ghostty_dark() {
   workdir="$TEST_ROOT/theme-ghostty"
   home_dir="$workdir/home"
@@ -608,6 +618,7 @@ test_install_dry_run_config() {
 
 run_test "v opens cheatsheet" test_v_opens_cheatsheet
 run_test "v passes --lang to cheatsheet" test_v_lang_passthrough
+run_test "cheatsheets document the v r restart shortcut" test_cheatsheets_document_restart_shortcut
 run_test "terminal-cheatsheet prefers dark Ghostty theme" test_terminal_theme_ghostty_dark
 run_test "terminal-cheatsheet parses dark tmux status theme" test_terminal_theme_tmux_dark
 run_test "v project detects nextjs and best test script" test_project_detection_nextjs

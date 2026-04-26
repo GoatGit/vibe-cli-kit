@@ -7,6 +7,7 @@
 - `v`：无参数打开这份速查表
 - `v doctor`：检查工具和配置状态
 - `v project`：识别当前项目类型和建议命令
+- `v r 3000`：清掉占用端口的旧进程并自动重启项目
 - `v session code`：打开 `code` 工作区
 - `e`：模糊选文件并用 `nvim` 打开
 - `fif tmux`：搜内容并直接跳到命中位置
@@ -27,6 +28,7 @@
 - `v sync --dry-run --only tmux`：预览 tmux 配置同步
 - `v update --dry-run --no-sync`：只预览工具升级
 - `v project`：识别项目类型并给出建议命令
+- `v r 3000`：释放端口并自动执行当前项目的启动命令
 - `v session code|backend|frontend|ai`：创建或复用工作区
 - `p`：快速跳项目目录
 - `ll`：等价于 `lsd -lah`
