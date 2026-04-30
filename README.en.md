@@ -6,15 +6,15 @@ vibe-cli-kit is a cross-platform terminal workbench for macOS, Linux, and WSL, b
 
 It starts from a simple idea: use strong existing terminal tools, connect them with a thin layer of practical defaults, and keep the setup fast, usable, and easy to live with.
 
-Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lightweight baseline for daily terminal work. In one pass, it installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
+Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lightweight baseline for daily terminal work. In one pass, it installs and configures `ghostty` `yazi` `tmux` `zellij` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `starship` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
 
 ## At a Glance
 
 - Install tools and configs in one pass
 - Stay light instead of becoming a giant dotfiles framework
 - Focus on coding flow, not on collecting tools for their own sake
-- Set up `ghostty`, `tmux`, and `yazi` with sane defaults
-- Add helper commands like `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `y`
+- Set up `ghostty`, `tmux`, `zellij`, and `yazi` with sane defaults
+- Add helper commands like `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `zmx`, `zmn`, `zma`, `zml`, `y`
 - Support `brew` and `apt`
 - Include a local template store with `v doctor`, `v backup`, `v diff`, `v sync`, `v update`, `v project`, and `v session`
 - Adapt by system and skip unavailable tools cleanly
@@ -72,10 +72,12 @@ Notes:
 - `lsd`
 - `bat`
 - `tmux`
+- `zellij`
 - `fzf`
 - `fd`
 - `atuin`
 - `zoxide`
+- `starship`
 - `nvim`
 - `ripgrep`
 - `lazygit`
@@ -114,6 +116,7 @@ sh install.sh --help
 ## What It Writes
 
 - `~/.config/ghostty/config`
+- `~/.config/starship.toml`
 - `~/.config/yazi/yazi.toml`
 - `~/.config/yazi/package.toml`
 - `~/.config/cheatsheets/terminal-cheatsheet.en.md`
@@ -122,6 +125,7 @@ sh install.sh --help
 - `~/.tmux.conf`
 - `~/.local/bin/terminal-cheatsheet`
 - `~/.local/bin/tmx`
+- `~/.local/bin/zmx`
 - `~/.local/bin/v`
 - `~/.local/bin/e`
 - `~/.local/bin/fif`
@@ -149,8 +153,10 @@ e                            # fuzzy-pick a file and open with nvim
 fif tmux                     # search content and jump to the hit
 p                            # jump to a project directory
 tmn                          # create/enter tmux session for current dir
+zmn                          # create/enter zellij session for current dir
 y                            # open Yazi
 tmx dev                      # enter the dev session
+zmx dev                      # enter the dev zellij session
 rg foo                       # search text globally
 rg --files | fzf             # fuzzy-pick a file
 z foo                        # jump to a frequent directory
@@ -173,6 +179,13 @@ glow README.en.md            # read the README with glow
 - `tmn`: create/attach using the current directory name
 - `tma`: attach/create a named session
 - `tml`: list sessions
+
+### zellij
+
+- `zmx`: smart session entry
+- `zmn`: create/attach using the current directory name
+- `zma`: attach/create a named session
+- `zml`: list sessions
 
 ### Workflow Commands
 
@@ -246,8 +259,8 @@ terminal-cheatsheet --lang ja
 Checks:
 
 - template store presence
-- deployed `ghostty` / `tmux` / `yazi` configs
-- installed helper scripts: `terminal-cheatsheet`, `tmx`, `v`, `e`, `fif`
+- deployed `ghostty` / `starship` / `tmux` / `yazi` configs
+- installed helper scripts: `terminal-cheatsheet`, `tmx`, `zmx`, `v`, `e`, `fif`
 - managed block in `~/.zshrc`
 - availability of key CLI tools
 
@@ -268,7 +281,7 @@ Purpose:
 Common flags:
 
 - `--dry-run`
-- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+- `--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|shell`
 - `--mode overwrite|skip|backup`
 
 Examples:
@@ -290,7 +303,7 @@ Purpose:
 
 Common flags:
 
-- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+- `--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|shell`
 
 Examples:
 
@@ -310,7 +323,7 @@ Purpose:
 
 Common flags:
 
-- `--only all|ghostty|yazi|tmux|cheatsheets|bin|shell`
+- `--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|shell`
 
 Examples:
 
@@ -475,6 +488,7 @@ export VIBE_PROJECT_DIRS="$HOME/AI:$HOME/work:$HOME/src"
 Key templates live under `templates/`:
 
 - `templates/ghostty/config`
+- `templates/starship/starship.toml`
 - `templates/tmux/tmux.conf`
 - `templates/yazi/yazi.toml`
 - `templates/yazi/package.toml`
@@ -482,6 +496,7 @@ Key templates live under `templates/`:
 - `templates/cheatsheets/`
 - `templates/bin/terminal-cheatsheet`
 - `templates/bin/tmx`
+- `templates/bin/zmx`
 - `templates/bin/v`
 - `templates/bin/e`
 - `templates/bin/fif`

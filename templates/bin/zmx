@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -eu
+
+session="${1:-main}"
+
+if [ "$session" = "-l" ] || [ "$session" = "--list" ]; then
+  exec zellij list-sessions
+fi
+
+exec zellij attach -c "$session"

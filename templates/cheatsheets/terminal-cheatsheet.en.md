@@ -1,6 +1,6 @@
 # Terminal Cheatsheet
 
-Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, ripgrep, lazygit, rich-cli, glow, fastfetch, btop.
+Included tools: Ghostty, Yazi, lsd, bat, tmux, zellij, fzf, fd, atuin, zoxide, starship, Neovim, ripgrep, lazygit, rich-cli, glow, fastfetch, btop.
 
 ## High Frequency
 
@@ -13,6 +13,8 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, fzf, fd, atuin, zoxide, Neovim, r
 - `fif tmux`: search content and open the match
 - `p`: jump to a project directory
 - `tmn`: open or create a tmux session using the current directory name
+- `zmx [name]`: open or create a zellij session, default `main`
+- `zmn`: open or create a zellij session using the current directory name
 - `y`: open Yazi
 - `rg foo`: search text globally
 - `z foo`: jump to a frequent directory
@@ -111,3 +113,8 @@ Copy mode: `v` starts selection, `y` copies and exits
 - `tmn`: create or enter a session named after the current directory
 - `tma`: attach `main`
 - `tml`: list all sessions
+- `zmx [name]`: enter a zellij session, default `main`
+- `zmx dev`: enter the `dev` session
+- `zmn`: create or enter a session named after the current directory
+- `zma`: attach or create `main`
+- `zml`: list all zellij sessions

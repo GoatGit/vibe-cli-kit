@@ -16,6 +16,10 @@ if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
 fi
 
+if command -v starship >/dev/null 2>&1; then
+  eval "$(starship init zsh)"
+fi
+
 if command -v brew >/dev/null 2>&1 && [ -f "$(brew --prefix fzf 2>/dev/null)/shell/key-bindings.zsh" ]; then
   . "$(brew --prefix fzf)/shell/key-bindings.zsh"
 elif [ -f /usr/share/fzf/key-bindings.zsh ]; then
@@ -71,6 +75,18 @@ tmn() {
 }
 
 alias tml='tmux list-sessions'
+
+zma() {
+  local session="${1:-main}"
+  zmx "$session"
+}
+
+zmn() {
+  local session="${1:-${PWD##*/}}"
+  zmx "$session"
+}
+
+alias zml='zellij list-sessions'
 
 p() {
   local query roots selected

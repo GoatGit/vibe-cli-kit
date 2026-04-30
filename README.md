@@ -6,7 +6,7 @@ vibe-cli-kit is a cross-platform terminal workbench for macOS, Linux, and WSL, b
 
 It starts from a simple idea: use strong existing terminal tools, connect them with a thin layer of practical defaults, and keep the setup fast, usable, and easy to live with.
 
-Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lightweight baseline for daily terminal work. In one pass, it installs and configures `ghostty` `yazi` `tmux` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
+Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lightweight baseline for daily terminal work. In one pass, it installs and configures `ghostty` `yazi` `tmux` `zellij` `fzf` `fd` `bat` `ripgrep` `lazygit` `nvim` `atuin` `zoxide` `starship` `glow` `fastfetch` `btop`, plus shell helpers and a local cheatsheet.
 
 [![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20WSL-1f6feb?style=flat)](#notes)
 [![pkg](https://img.shields.io/badge/pkg-brew%20%7C%20apt-2da44e?style=flat)](#notes)
@@ -17,9 +17,9 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 ## What You Get
 
 - A pragmatic terminal baseline instead of a giant personal framework
-- A coding-first workflow centered on `yazi`, `tmux`, `nvim`, `ripgrep`, and `lazygit`
-- Ready-to-use terminal defaults for `ghostty`, `tmux`, and `yazi`
-- Shell helpers like `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `y`
+- A coding-first workflow centered on `yazi`, `tmux`, `zellij`, `nvim`, `ripgrep`, and `lazygit`
+- Ready-to-use terminal defaults for `ghostty`, `tmux`, `zellij`, and `yazi`
+- Shell helpers like `v` `e` `fif` `p` `tmx` `tmn` `tma` `tml` `zmx` `zmn` `zma` `zml` `y`
 - User-overridable session layouts via `~/.config/vibe-cli-kit/session.conf`
 - Localized cheatsheets in English, Simplified Chinese, and Japanese
 - Cross-platform installer with `brew` / `apt`
@@ -44,6 +44,7 @@ v session code               # open the code workspace
 e                            # fuzzy-pick a file and open with nvim
 fif tmux                     # search content and jump to the hit
 tmn                          # create/enter tmux session for current dir
+zmn                          # create/enter zellij session for current dir
 y                            # open Yazi
 nvim .                       # open current directory
 ```

@@ -124,6 +124,131 @@ test_cheatsheets_document_restart_shortcut() {
     assert_contains "$ja_contents" '`v r 3000`' "ja cheatsheet restart shortcut"
 }
 
+test_zellij_shortcuts_and_starship_are_wired() {
+  install_contents="$(cat "$REPO_ROOT/install.sh")"
+  driver_contents="$(cat "$REPO_ROOT/templates/bin/v")"
+  shell_contents="$(cat "$REPO_ROOT/templates/shell/zshrc.snippet")"
+  zmx_contents="$(cat "$REPO_ROOT/templates/bin/zmx")"
+  starship_template_contents="$(cat "$REPO_ROOT/templates/starship/starship.toml")"
+  zh_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.zh-CN.md")"
+  en_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.en.md")"
+  ja_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.ja.md")"
+
+  assert_contains "$install_contents" "zellij" "install.sh lists zellij" &&
+    assert_contains "$install_contents" "starship" "install.sh lists starship" &&
+    assert_contains "$install_contents" 'cp "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx"' "install.sh deploys zmx" &&
+    assert_contains "$install_contents" 'cp "$TEMPLATE_DIR/starship/starship.toml" "$CONFIG_DIR/starship.toml"' "install.sh deploys starship config" &&
+  assert_contains "$driver_contents" 'check_cmd "zellij" "zellij"' "doctor checks zellij" &&
+    assert_contains "$driver_contents" 'check_cmd "starship" "starship"' "doctor checks starship" &&
+    assert_contains "$driver_contents" 'check_file "starship config" "$CONFIG_DIR/starship.toml"' "doctor checks starship config" &&
+    assert_contains "$driver_contents" 'run_diff_pair "starship" "$TEMPLATE_DIR/starship/starship.toml" "$CONFIG_DIR/starship.toml"' "diff covers starship config" &&
+    assert_contains "$driver_contents" 'backup_copy_file starship "$CONFIG_DIR/starship.toml" "$root/starship/starship.toml"' "backup covers starship config" &&
+    assert_contains "$driver_contents" "brew_update_formula zellij" "brew update covers zellij" &&
+    assert_contains "$driver_contents" "brew_update_formula starship" "brew update covers starship" &&
+    assert_contains "$driver_contents" "apt_update_package zellij" "apt update covers zellij" &&
+    assert_contains "$driver_contents" "update_starship_fallback" "apt update covers starship fallback" &&
+    assert_contains "$driver_contents" 'check_file "script: zmx" "$LOCAL_BIN_DIR/zmx"' "doctor checks zmx script" &&
+    assert_contains "$shell_contents" 'eval "$(starship init zsh)"' "shell snippet initializes starship" &&
+    assert_contains "$shell_contents" "zma()" "shell snippet adds zma" &&
+    assert_contains "$shell_contents" "zmn()" "shell snippet adds zmn" &&
+    assert_contains "$shell_contents" "alias zml='zellij list-sessions'" "shell snippet adds zml" &&
+    assert_contains "$zmx_contents" 'exec zellij attach -c "$session"' "zmx attaches or creates session" &&
+    assert_contains "$starship_template_contents" '$directory$git_branch$git_status$fill$cmd_duration' "starship template keeps first line layout" &&
+    assert_contains "$starship_template_contents" '$nodejs$python$rust$golang$package' "starship template restores language runtime line" &&
+    assert_contains "$starship_template_contents" '$character' "starship template keeps prompt marker" &&
+    assert_contains "$starship_template_contents" 'palette = "catppuccin_mocha"' "starship template enables catppuccin palette" &&
+    assert_contains "$starship_template_contents" 'fg:base bg:lavender' "starship template uses background color blocks" &&
+    assert_contains "$starship_template_contents" 'truncation_length = 5' "starship template shows more path segments" &&
+    assert_contains "$starship_template_contents" 'truncate_to_repo = false' "starship template does not collapse to repo root" &&
+    assert_not_contains "$starship_template_contents" '[]' "starship template does not use powerline separators" &&
+    assert_contains "$starship_template_contents" '[gcloud]' "starship template configures gcloud" &&
+    assert_contains "$starship_template_contents" 'disabled = true' "starship template disables gcloud account display" &&
+    assert_contains "$starship_template_contents" '[nodejs]' "starship template restores nodejs module" &&
+    assert_contains "$starship_template_contents" '[python]' "starship template restores python module" &&
+    assert_contains "$starship_template_contents" '[rust]' "starship template restores rust module" &&
+    assert_contains "$starship_template_contents" '[golang]' "starship template restores golang module" &&
+    assert_contains "$starship_template_contents" '[package]' "starship template restores package module" &&
+    assert_contains "$zh_contents" "zellij" "zh cheatsheet lists zellij" &&
+    assert_contains "$zh_contents" "starship" "zh cheatsheet lists starship" &&
+    assert_contains "$zh_contents" "zmx [name]" "zh cheatsheet lists zmx" &&
+    assert_contains "$en_contents" "zellij" "en cheatsheet lists zellij" &&
+    assert_contains "$en_contents" "starship" "en cheatsheet lists starship" &&
+    assert_contains "$en_contents" "zmx [name]" "en cheatsheet lists zmx" &&
+    assert_contains "$ja_contents" "zellij" "ja cheatsheet lists zellij" &&
+    assert_contains "$ja_contents" "starship" "ja cheatsheet lists starship" &&
+    assert_contains "$ja_contents" "zmx [name]" "ja cheatsheet lists zmx"
+}
+
+test_install_prefers_configured_brew_on_macos() {
+  workdir="$TEST_ROOT/install-brew-fallback"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  make_test_bin "$bin_dir"
+  mkdir -p "$home_dir/.config"
+
+  write_script "$bin_dir/uname" '#!/bin/sh
+printf "Darwin\n"'
+  brew_log="$workdir/brew.log"
+  write_script "$bin_dir/brew" '#!/bin/sh
+printf "%s\n" "$*" >> "$BREW_TEST_LOG"
+case "$1" in
+  --prefix)
+    printf "/fake/homebrew\n"
+    ;;
+  info|list)
+    exit 1
+    ;;
+  install)
+    exit 0
+    ;;
+esac'
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$home_dir/.config" \
+    BREW_BIN="$bin_dir/brew" \
+    BREW_TEST_LOG="$brew_log" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/install.sh" --dry-run
+  )"
+  brew_log_contents="$(cat "$brew_log")"
+
+  assert_contains "$output" "Package manager: brew" "macOS uses configured brew" &&
+    assert_not_contains "$output" "Package manager: apt" "macOS does not fall back to apt when brew is configured" &&
+    assert_contains "$brew_log_contents" "info --formula starship" "install.sh uses fake brew for starship checks"
+}
+
+test_v_update_prefers_brew_path_fallback_on_macos() {
+  workdir="$TEST_ROOT/v-update-brew-fallback"
+  home_dir="$workdir/home"
+  bin_dir="$workdir/bin"
+  config_dir="$home_dir/.config"
+  make_test_bin "$bin_dir"
+  mkdir -p "$config_dir/vibe-cli-kit/templates"
+
+  write_script "$bin_dir/uname" '#!/bin/sh
+printf "Darwin\n"'
+  write_script "$bin_dir/brew" '#!/bin/sh
+case "$1" in
+  list)
+    exit 1
+    ;;
+  *)
+    exit 0
+    ;;
+esac'
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" update --dry-run --no-sync
+  )"
+
+  assert_contains "$output" "package-manager=brew" "v update prefers brew from PATH fallback on macOS" &&
+    assert_not_contains "$output" "package-manager=apt" "v update does not fall back to apt when brew is on PATH"
+}
+
 test_terminal_theme_ghostty_dark() {
   workdir="$TEST_ROOT/theme-ghostty"
   home_dir="$workdir/home"
@@ -613,12 +738,16 @@ test_install_dry_run_config() {
   )"
 
   assert_contains "$output" "session.conf.example" "install dry-run session example" &&
-    assert_contains "$output" "session.conf" "install dry-run session config"
+    assert_contains "$output" "session.conf" "install dry-run session config" &&
+    assert_contains "$output" "starship.toml" "install dry-run starship config"
 }
 
 run_test "v opens cheatsheet" test_v_opens_cheatsheet
 run_test "v passes --lang to cheatsheet" test_v_lang_passthrough
 run_test "cheatsheets document the v r restart shortcut" test_cheatsheets_document_restart_shortcut
+run_test "zellij shortcuts and starship are wired in installer, shell, doctor, updater, and cheatsheets" test_zellij_shortcuts_and_starship_are_wired
+run_test "install.sh prefers configured brew on macOS" test_install_prefers_configured_brew_on_macos
+run_test "v update prefers brew from PATH on macOS" test_v_update_prefers_brew_path_fallback_on_macos
 run_test "terminal-cheatsheet prefers dark Ghostty theme" test_terminal_theme_ghostty_dark
 run_test "terminal-cheatsheet parses dark tmux status theme" test_terminal_theme_tmux_dark
 run_test "v project detects nextjs and best test script" test_project_detection_nextjs

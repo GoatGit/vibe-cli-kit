@@ -1,6 +1,6 @@
 # Terminal Cheatsheet
 
-已集成：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
+已集成：Ghostty、Yazi、lsd、bat、tmux、zellij、fzf、fd、atuin、zoxide、starship、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
 
 ## 高频命令
 
@@ -13,6 +13,8 @@
 - `fif tmux`：搜内容并直接跳到命中位置
 - `p`：快速跳项目目录
 - `tmn`：当前目录开/进 tmux session
+- `zmx [name]`：进入或创建 zellij session，默认 `main`
+- `zmn`：用当前目录名进入或创建 zellij session
 - `y`：打开 Yazi
 - `rg foo`：全局搜索文本
 - `z foo`：快速跳目录
@@ -111,3 +113,8 @@
 - `tmn`：用当前目录名创建或进入 session
 - `tma`：attach `main`
 - `tml`：列出全部 sessions
+- `zmx [name]`：进入指定 zellij session，默认 `main`
+- `zmx dev`：进入 `dev` session
+- `zmn`：用当前目录名创建或进入 zellij session
+- `zma`：attach 或创建 `main`
+- `zml`：列出全部 zellij sessions

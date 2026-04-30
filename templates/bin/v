@@ -36,9 +36,9 @@ Usage:
   v
   v [--lang en|zh-CN|ja]
   v doctor
-  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
-  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
-  v sync [--dry-run] [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell] [--mode overwrite|skip|backup]
+  v backup [--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|session|shell]
+  v diff [--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|session|shell]
+  v sync [--dry-run] [--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|session|shell] [--mode overwrite|skip|backup]
   v update [--dry-run] [--no-sync]
   v session [code|backend|frontend|ai] [--name SESSION] [--reset]
   v project
@@ -149,7 +149,7 @@ EOF
 diff_help() {
   cat <<'EOF'
 Usage:
-  v diff [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
+  v diff [--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|session|shell]
 
 Behavior:
   - compares the local template store with deployed files
@@ -161,7 +161,7 @@ EOF
 backup_help() {
   cat <<'EOF'
 Usage:
-  v backup [--only all|ghostty|yazi|tmux|cheatsheets|bin|session|shell]
+  v backup [--only all|ghostty|starship|yazi|tmux|cheatsheets|bin|session|shell]
 
 Behavior:
   - backs up deployed files into ~/.config/vibe-cli-kit/backups/<timestamp>/
@@ -344,6 +344,10 @@ sync_ghostty() {
   copy_file "$TEMPLATE_DIR/ghostty/config" "$CONFIG_DIR/ghostty/config"
 }
 
+sync_starship() {
+  copy_file "$TEMPLATE_DIR/starship/starship.toml" "$CONFIG_DIR/starship.toml"
+}
+
 sync_yazi() {
   copy_file "$TEMPLATE_DIR/yazi/yazi.toml" "$CONFIG_DIR/yazi/yazi.toml"
   copy_file "$TEMPLATE_DIR/yazi/package.toml" "$CONFIG_DIR/yazi/package.toml"
@@ -379,13 +383,14 @@ sync_cheatsheets() {
 sync_bin() {
   copy_file "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   copy_file "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx"
+  copy_file "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx"
   copy_file "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v"
   copy_file "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e"
   copy_file "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif"
   if [ "$SYNC_DRY_RUN" -eq 1 ]; then
-    printf 'dry   chmod +x %s %s %s %s %s\n' "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+    printf 'dry   chmod +x %s %s %s %s %s %s\n' "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
   else
-    chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+    chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
     printf 'sync  chmod +x scripts in %s\n' "$LOCAL_BIN_DIR"
   fi
 }
@@ -403,6 +408,7 @@ sync_target() {
   case "$1" in
     all)
       sync_ghostty
+      sync_starship
       sync_yazi
       sync_tmux
       sync_session
@@ -411,6 +417,7 @@ sync_target() {
       sync_shell
       ;;
     ghostty) sync_ghostty ;;
+    starship) sync_starship ;;
     yazi) sync_yazi ;;
     tmux) sync_tmux ;;
     session) sync_session ;;
@@ -528,6 +535,9 @@ backup_target() {
     ghostty)
       backup_copy_file ghostty "$CONFIG_DIR/ghostty/config" "$root/ghostty/config"
       ;;
+    starship)
+      backup_copy_file starship "$CONFIG_DIR/starship.toml" "$root/starship/starship.toml"
+      ;;
     yazi)
       backup_copy_file yazi.toml "$CONFIG_DIR/yazi/yazi.toml" "$root/yazi/yazi.toml"
       backup_copy_file yazi.package "$CONFIG_DIR/yazi/package.toml" "$root/yazi/package.toml"
@@ -547,6 +557,7 @@ backup_target() {
     bin)
       backup_copy_file bin.terminal-cheatsheet "$LOCAL_BIN_DIR/terminal-cheatsheet" "$root/bin/terminal-cheatsheet"
       backup_copy_file bin.tmx "$LOCAL_BIN_DIR/tmx" "$root/bin/tmx"
+      backup_copy_file bin.zmx "$LOCAL_BIN_DIR/zmx" "$root/bin/zmx"
       backup_copy_file bin.v "$LOCAL_BIN_DIR/v" "$root/bin/v"
       backup_copy_file bin.e "$LOCAL_BIN_DIR/e" "$root/bin/e"
       backup_copy_file bin.fif "$LOCAL_BIN_DIR/fif" "$root/bin/fif"
@@ -565,6 +576,7 @@ backup_target() {
       ;;
     all)
       backup_target ghostty "$root"
+      backup_target starship "$root"
       backup_target yazi "$root"
       backup_target tmux "$root"
       backup_target session "$root"
@@ -659,6 +671,9 @@ diff_target() {
     ghostty)
       run_diff_pair "ghostty" "$TEMPLATE_DIR/ghostty/config" "$CONFIG_DIR/ghostty/config" || diff_found=1
       ;;
+    starship)
+      run_diff_pair "starship" "$TEMPLATE_DIR/starship/starship.toml" "$CONFIG_DIR/starship.toml" || diff_found=1
+      ;;
     yazi)
       run_diff_pair "yazi.toml" "$TEMPLATE_DIR/yazi/yazi.toml" "$CONFIG_DIR/yazi/yazi.toml" || diff_found=1
       run_diff_pair "yazi.package" "$TEMPLATE_DIR/yazi/package.toml" "$CONFIG_DIR/yazi/package.toml" || diff_found=1
@@ -678,6 +693,7 @@ diff_target() {
     bin)
       run_diff_pair "bin.terminal-cheatsheet" "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet" || diff_found=1
       run_diff_pair "bin.tmx" "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx" || diff_found=1
+      run_diff_pair "bin.zmx" "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx" || diff_found=1
       run_diff_pair "bin.v" "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v" || diff_found=1
       run_diff_pair "bin.e" "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e" || diff_found=1
       run_diff_pair "bin.fif" "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif" || diff_found=1
@@ -692,6 +708,7 @@ diff_target() {
       ;;
     all)
       diff_target ghostty || diff_found=1
+      diff_target starship || diff_found=1
       diff_target yazi || diff_found=1
       diff_target tmux || diff_found=1
       diff_target session || diff_found=1
@@ -747,6 +764,28 @@ reset_update_state() {
   FAILED_ITEMS=
 }
 
+resolve_brew_bin() {
+  if command -v brew >/dev/null 2>&1; then
+    command -v brew
+  elif [ -x /opt/homebrew/bin/brew ]; then
+    printf '/opt/homebrew/bin/brew\n'
+  elif [ -x /usr/local/bin/brew ]; then
+    printf '/usr/local/bin/brew\n'
+  else
+    printf '\n'
+  fi
+}
+
+brew_exists() {
+  [ -n "$(resolve_brew_bin)" ]
+}
+
+brew_exec() {
+  brew_bin="$(resolve_brew_bin)"
+  [ -n "$brew_bin" ] || return 1
+  "$brew_bin" "$@"
+}
+
 detect_platform() {
   case "$(uname -s)" in
     Darwin) printf 'macos\n' ;;
@@ -767,7 +806,7 @@ detect_package_manager() {
   platform="$(detect_platform)"
   case "$platform" in
     macos)
-      if command -v brew >/dev/null 2>&1; then
+      if brew_exists; then
         printf 'brew\n'
       elif command -v apt-get >/dev/null 2>&1; then
         printf 'apt\n'
@@ -778,7 +817,7 @@ detect_package_manager() {
     linux|wsl)
       if command -v apt-get >/dev/null 2>&1; then
         printf 'apt\n'
-      elif command -v brew >/dev/null 2>&1; then
+      elif brew_exists; then
         printf 'brew\n'
       else
         printf 'unknown\n'
@@ -851,11 +890,11 @@ print_update_block() {
 
 brew_update_formula() {
   formula="$1"
-  if ! brew list --formula "$formula" >/dev/null 2>&1; then
+  if ! brew_exec list --formula "$formula" >/dev/null 2>&1; then
     mark_skipped "$formula"
     return 0
   fi
-  if run_update_cmd brew upgrade "$formula"; then
+  if run_update_cmd "$(resolve_brew_bin)" upgrade "$formula"; then
     mark_updated "$formula"
   else
     mark_failed "$formula"
@@ -864,8 +903,8 @@ brew_update_formula() {
 
 brew_update_cask() {
   cask="$1"
-  if brew list --cask "$cask" >/dev/null 2>&1 || [ -d "/Applications/Ghostty.app" ]; then
-    if run_update_cmd brew upgrade --cask "$cask"; then
+  if brew_exec list --cask "$cask" >/dev/null 2>&1 || [ -d "/Applications/Ghostty.app" ]; then
+    if run_update_cmd "$(resolve_brew_bin)" upgrade --cask "$cask"; then
       mark_updated "$cask"
     else
       mark_failed "$cask"
@@ -886,6 +925,25 @@ apt_update_package() {
   else
     mark_failed "$pkg"
   fi
+}
+
+update_starship_fallback() {
+  if dpkg -s starship >/dev/null 2>&1; then
+    apt_update_package starship
+    return 0
+  fi
+
+  if brew_exec list --formula starship >/dev/null 2>&1; then
+    brew_update_formula starship
+    return 0
+  fi
+
+  if command_exists starship; then
+    mark_skipped "starship"
+    return 0
+  fi
+
+  mark_skipped "starship"
 }
 
 update_python_cli() {
@@ -915,7 +973,7 @@ update_brew() {
   printf 'vibe-cli-kit update\n'
   printf 'package-manager=brew dry-run=%s sync=%s\n\n' "$UPDATE_DRY_RUN" "$UPDATE_SYNC"
 
-  if run_update_cmd brew update; then
+  if run_update_cmd "$(resolve_brew_bin)" update; then
     if [ "$UPDATE_DRY_RUN" -eq 1 ]; then
       printf 'plan  refresh brew metadata\n'
     else
@@ -935,10 +993,12 @@ update_brew() {
   brew_update_formula lsd
   brew_update_formula bat
   brew_update_formula tmux
+  brew_update_formula zellij
   brew_update_formula fzf
   brew_update_formula fd
   brew_update_formula atuin
   brew_update_formula zoxide
+  brew_update_formula starship
   brew_update_formula neovim
   brew_update_formula ripgrep
   brew_update_formula lazygit
@@ -968,9 +1028,11 @@ update_apt() {
   apt_update_package bat
   apt_update_package fd-find
   apt_update_package tmux
+  apt_update_package zellij
   apt_update_package fzf
   apt_update_package atuin
   apt_update_package zoxide
+  update_starship_fallback
   apt_update_package neovim
   apt_update_package ripgrep
   apt_update_package lazygit
@@ -1927,6 +1989,7 @@ doctor() {
   check_file "session config" "$KIT_DIR/session.conf"
   check_file "session config example" "$KIT_DIR/session.conf.example"
   check_file "ghostty config" "$CONFIG_DIR/ghostty/config"
+  check_file "starship config" "$CONFIG_DIR/starship.toml"
   check_file "yazi config" "$CONFIG_DIR/yazi/yazi.toml"
   check_file "yazi package" "$CONFIG_DIR/yazi/package.toml"
   check_file "cheatsheet (en)" "$CHEATSHEET_DIR/terminal-cheatsheet.en.md"
@@ -1934,6 +1997,7 @@ doctor() {
   check_file "cheatsheet (ja)" "$CHEATSHEET_DIR/terminal-cheatsheet.ja.md"
   check_file "script: terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   check_file "script: tmx" "$LOCAL_BIN_DIR/tmx"
+  check_file "script: zmx" "$LOCAL_BIN_DIR/zmx"
   check_file "script: v" "$LOCAL_BIN_DIR/v"
   check_file "script: e" "$LOCAL_BIN_DIR/e"
   check_file "script: fif" "$LOCAL_BIN_DIR/fif"
@@ -1946,10 +2010,12 @@ doctor() {
   check_cmd "lsd" "lsd"
   check_cmd "bat" "bat" "batcat"
   check_cmd "tmux" "tmux"
+  check_cmd "zellij" "zellij"
   check_cmd "fzf" "fzf"
   check_cmd "fd" "fd" "fdfind"
   check_cmd "atuin" "atuin"
   check_cmd "zoxide" "zoxide"
+  check_cmd "starship" "starship"
   check_cmd "nvim" "nvim" "neovim"
   check_cmd "ripgrep" "rg" "ripgrep"
   check_cmd "lazygit" "lazygit"

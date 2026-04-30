@@ -1,0 +1,78 @@
+# File: ~/.config/starship.toml
+
+format = """
+$directory$git_branch$git_status$fill$cmd_duration
+$nodejs$python$rust$golang$package
+$character"""
+
+add_newline = false
+palette = "catppuccin_mocha"
+
+[fill]
+symbol = " "
+
+[directory]
+style = "fg:base bg:lavender"
+truncation_length = 5
+truncate_to_repo = false
+read_only = " ro"
+read_only_style = "red"
+format = "[ $path$read_only ]($style)"
+
+[git_branch]
+symbol = "git:"
+style = "fg:base bg:mauve"
+format = "[ $symbol$branch ]($style)"
+
+[git_status]
+style = "fg:base bg:peach"
+format = "[ $all_status$ahead_behind ]($style)"
+
+[cmd_duration]
+min_time = 500
+style = "fg:base bg:yellow"
+format = "[ ${duration} ]($style)"
+
+[nodejs]
+symbol = "node "
+style = "fg:base bg:green"
+format = "[ $symbol$version ]($style)"
+
+[python]
+symbol = "py "
+style = "fg:base bg:blue"
+format = "[ $symbol$version ]($style)"
+
+[rust]
+symbol = "rs "
+style = "fg:base bg:red"
+format = "[ $symbol$version ]($style)"
+
+[golang]
+symbol = "go "
+style = "fg:base bg:cyan"
+format = "[ $symbol$version ]($style)"
+
+[package]
+symbol = "pkg "
+style = "fg:base bg:peach"
+format = "[ $symbol$version ]($style)"
+
+[gcloud]
+disabled = true
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[>](bold red)"
+vimcmd_symbol = "[<](bold green)"
+
+[palettes.catppuccin_mocha]
+base = "#1e1e2e"
+lavender = "#b4befe"
+mauve = "#cba6f7"
+peach = "#fab387"
+yellow = "#f9e2af"
+green = "#a6e3a1"
+blue = "#89b4fa"
+red = "#f38ba8"
+cyan = "#94e2d5"

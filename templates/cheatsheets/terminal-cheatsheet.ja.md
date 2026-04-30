@@ -1,6 +1,6 @@
 # Terminal Cheatsheet
 
-含まれるツール：Ghostty、Yazi、lsd、bat、tmux、fzf、fd、atuin、zoxide、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
+含まれるツール：Ghostty、Yazi、lsd、bat、tmux、zellij、fzf、fd、atuin、zoxide、starship、Neovim、ripgrep、lazygit、rich-cli、glow、fastfetch、btop。
 
 ## High Frequency
 
@@ -13,6 +13,8 @@
 - `fif tmux`：内容検索してヒット位置へ移動
 - `p`：プロジェクトディレクトリへ移動
 - `tmn`：現在のディレクトリ名で tmux セッションを作成/再利用
+- `zmx [name]`：zellij セッションへ入るか作成。既定は `main`
+- `zmn`：現在のディレクトリ名で zellij セッションを作成/再利用
 - `y`：Yazi を開く
 - `rg foo`：全文検索
 - `z foo`：よく使うディレクトリへ移動
@@ -111,3 +113,8 @@
 - `tmn`：現在のディレクトリ名でセッションを作成または再利用
 - `tma`：`main` に attach
 - `tml`：すべてのセッションを表示
+- `zmx [name]`：zellij セッションへ入る。既定は `main`
+- `zmx dev`：`dev` セッションへ入る
+- `zmn`：現在のディレクトリ名で zellij セッションを作成または再利用
+- `zma`：`main` に attach または作成
+- `zml`：すべての zellij セッションを表示

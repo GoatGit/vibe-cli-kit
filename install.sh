@@ -21,12 +21,14 @@ if [ -z "${BREW_BIN}" ]; then
     BREW_BIN=/opt/homebrew/bin/brew
   elif [ -x /usr/local/bin/brew ]; then
     BREW_BIN=/usr/local/bin/brew
+  elif command -v brew >/dev/null 2>&1; then
+    BREW_BIN="$(command -v brew)"
   else
     BREW_BIN=
   fi
 fi
 
-TOOLS="ghostty yazi lsd bat tmux fzf fd atuin zoxide nvim ripgrep lazygit rich-cli glow fastfetch btop"
+TOOLS="ghostty yazi lsd bat tmux zellij fzf fd atuin zoxide starship nvim ripgrep lazygit rich-cli glow fastfetch btop"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 KIT_DIR="$CONFIG_DIR/vibe-cli-kit"
 TEMPLATE_STORE_DIR="$KIT_DIR/templates"
@@ -326,6 +328,28 @@ apt_install_package() {
   append_status INSTALLED_TOOLS "$pkg"
 }
 
+install_starship_fallback() {
+  if command -v starship >/dev/null 2>&1; then
+    log "skip starship: already installed"
+    append_status SKIPPED_TOOLS "starship"
+    return 0
+  fi
+
+  if [ -n "$BREW_BIN" ]; then
+    log "install starship with brew fallback"
+    if run_cmd "$BREW_BIN" install starship; then
+      append_status INSTALLED_TOOLS "starship"
+    else
+      warn "skip starship: brew fallback install failed"
+      append_status UNAVAILABLE_TOOLS "starship"
+    fi
+    return 0
+  fi
+
+  warn "skip starship: not available in current apt repo and brew not found"
+  append_status UNAVAILABLE_TOOLS "starship"
+}
+
 install_python_cli() {
   package="$1"
   if command -v pipx >/dev/null 2>&1; then
@@ -368,10 +392,12 @@ install_tools_brew() {
   brew_install_formula lsd
   brew_install_formula bat
   brew_install_formula tmux
+  brew_install_formula zellij
   brew_install_formula fzf
   brew_install_formula fd
   brew_install_formula atuin
   brew_install_formula zoxide
+  brew_install_formula starship
   brew_install_formula neovim
   brew_install_formula ripgrep
   brew_install_formula lazygit
@@ -389,9 +415,15 @@ install_tools_apt() {
   apt_install_package bat
   apt_install_package fd-find
   apt_install_package tmux
+  apt_install_package zellij
   apt_install_package fzf
   apt_install_package atuin
   apt_install_package zoxide
+  if apt_package_exists starship; then
+    apt_install_package starship
+  else
+    install_starship_fallback
+  fi
   apt_install_package neovim
   apt_install_package ripgrep
   apt_install_package lazygit
@@ -425,19 +457,22 @@ install_configs() {
   ensure_dir "$TEMPLATE_STORE_DIR/ghostty"
   ensure_dir "$TEMPLATE_STORE_DIR/session"
   ensure_dir "$TEMPLATE_STORE_DIR/shell"
+  ensure_dir "$TEMPLATE_STORE_DIR/starship"
   ensure_dir "$TEMPLATE_STORE_DIR/tmux"
   ensure_dir "$TEMPLATE_STORE_DIR/yazi"
 
   run_cmd cp "$TEMPLATE_DIR/ghostty/config" "$CONFIG_DIR/ghostty/config"
+  run_cmd cp "$TEMPLATE_DIR/starship/starship.toml" "$CONFIG_DIR/starship.toml"
   run_cmd cp "$TEMPLATE_DIR/yazi/yazi.toml" "$CONFIG_DIR/yazi/yazi.toml"
   run_cmd cp "$TEMPLATE_DIR/yazi/package.toml" "$CONFIG_DIR/yazi/package.toml"
   run_cmd cp "$TEMPLATE_DIR/tmux/tmux.conf" "$HOME/.tmux.conf"
   run_cmd cp "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   run_cmd cp "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx"
+  run_cmd cp "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx"
   run_cmd cp "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v"
   run_cmd cp "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e"
   run_cmd cp "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif"
-  run_cmd chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+  run_cmd chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
 
   for cheatsheet in "$TEMPLATE_DIR"/cheatsheets/*.md; do
     run_cmd cp "$cheatsheet" "$CHEATSHEET_DIR/"
@@ -445,12 +480,14 @@ install_configs() {
 
   run_cmd cp "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$TEMPLATE_STORE_DIR/bin/terminal-cheatsheet"
   run_cmd cp "$TEMPLATE_DIR/bin/tmx" "$TEMPLATE_STORE_DIR/bin/tmx"
+  run_cmd cp "$TEMPLATE_DIR/bin/zmx" "$TEMPLATE_STORE_DIR/bin/zmx"
   run_cmd cp "$TEMPLATE_DIR/bin/v" "$TEMPLATE_STORE_DIR/bin/v"
   run_cmd cp "$TEMPLATE_DIR/bin/e" "$TEMPLATE_STORE_DIR/bin/e"
   run_cmd cp "$TEMPLATE_DIR/bin/fif" "$TEMPLATE_STORE_DIR/bin/fif"
   run_cmd cp "$TEMPLATE_DIR/ghostty/config" "$TEMPLATE_STORE_DIR/ghostty/config"
   run_cmd cp "$TEMPLATE_DIR/session/session.conf.example" "$TEMPLATE_STORE_DIR/session/session.conf.example"
   run_cmd cp "$TEMPLATE_DIR/shell/zshrc.snippet" "$TEMPLATE_STORE_DIR/shell/zshrc.snippet"
+  run_cmd cp "$TEMPLATE_DIR/starship/starship.toml" "$TEMPLATE_STORE_DIR/starship/starship.toml"
   run_cmd cp "$TEMPLATE_DIR/tmux/tmux.conf" "$TEMPLATE_STORE_DIR/tmux/tmux.conf"
   run_cmd cp "$TEMPLATE_DIR/yazi/yazi.toml" "$TEMPLATE_STORE_DIR/yazi/yazi.toml"
   run_cmd cp "$TEMPLATE_DIR/yazi/package.toml" "$TEMPLATE_STORE_DIR/yazi/package.toml"
@@ -589,6 +626,11 @@ $(msg useful_commands)
   tmn
   tma
   tml
+  zmx
+  zmn
+  zma
+  zml
+  zellij
   y
   nvim
   rg foo
