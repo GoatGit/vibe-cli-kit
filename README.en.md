@@ -16,7 +16,7 @@ Instead of growing into a heavy personal framework, vibe-cli-kit gives you a lig
 - Set up `ghostty`, `tmux`, `zellij`, and `yazi` with sane defaults
 - Add helper commands like `v`, `e`, `fif`, `p`, `tmx`, `tmn`, `tma`, `tml`, `zmx`, `zmn`, `zma`, `zml`, `y`
 - Support `brew` and `apt`
-- Include a local template store with `v doctor`, `v backup`, `v diff`, `v sync`, `v update`, `v project`, and `v session`
+- Include a local template store with `v doctor`, `v backup`, `v diff`, `v sync`, `v update`, `v project`, `v sites`, and `v session`
 - Adapt by system and skip unavailable tools cleanly
 - Show installed / skipped / unavailable tools at the end
 
@@ -32,6 +32,8 @@ v backup --only tmux
 v diff --only tmux
 v update --dry-run --no-sync
 v project
+v sites --rebuild
+v sites --bookmarks
 v sync --dry-run --only tmux
 v session code
 e
@@ -147,6 +149,8 @@ v backup --only tmux         # back up tmux config only
 v diff --only tmux           # compare tmux template and deployed config
 v update --dry-run --no-sync # preview package updates without config sync
 v project                    # detect project type and suggested commands
+v sites --rebuild            # build the local browser-history start page
+v sites --bookmarks          # print the browser-importable bookmarks file
 v sync --dry-run --only tmux # preview tmux config sync
 v session code               # open the code workspace
 e                            # fuzzy-pick a file and open with nvim
@@ -194,6 +198,9 @@ glow README.en.md            # read the README with glow
 - `v diff --only tmux`: compare deployed config with the template store
 - `v update --dry-run --no-sync`: preview tool updates only
 - `v project`: detect the current project type and print suggested commands
+- `v sites`: open the local browser-history start page
+- `v sites --rebuild`: rescan Chrome / Edge / Safari history and bookmarks
+- `v sites --bookmarks`: print a browser-importable bookmarks HTML file
 - `v sync --dry-run --only tmux`: preview config sync
 - `v session code`: create or reuse a coding workspace
 - `v session backend`: create or reuse a backend workspace
@@ -231,6 +238,9 @@ glow README.en.md            # read the README with glow
 - `v diff --only tmux`
 - `v update --dry-run --no-sync`
 - `v project`
+- `v sites`
+- `v sites --rebuild`
+- `v sites --bookmarks`
 - `v sync --dry-run --only tmux`
 - `v session code`
 - `e`

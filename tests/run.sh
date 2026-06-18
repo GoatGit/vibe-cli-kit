@@ -179,6 +179,142 @@ test_zellij_shortcuts_and_starship_are_wired() {
     assert_contains "$ja_contents" "zmx [name]" "ja cheatsheet lists zmx"
 }
 
+test_sites_command_is_wired() {
+  install_contents="$(cat "$REPO_ROOT/install.sh")"
+  driver_contents="$(cat "$REPO_ROOT/templates/bin/v")"
+  zh_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.zh-CN.md")"
+  en_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.en.md")"
+  ja_contents="$(cat "$REPO_ROOT/templates/cheatsheets/terminal-cheatsheet.ja.md")"
+
+  assert_contains "$install_contents" 'cp "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites"' "install.sh deploys v-sites" &&
+    assert_contains "$install_contents" 'cp "$TEMPLATE_DIR/bin/v-sites" "$TEMPLATE_STORE_DIR/bin/v-sites"' "install.sh stores v-sites template" &&
+    assert_contains "$driver_contents" "v sites [--rebuild] [--open] [--bookmarks] [--no-open]" "v usage lists sites" &&
+    assert_contains "$driver_contents" 'check_file "script: v-sites" "$LOCAL_BIN_DIR/v-sites"' "doctor checks v-sites script" &&
+    assert_contains "$driver_contents" 'run_diff_pair "bin.v-sites" "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites"' "diff covers v-sites" &&
+    assert_contains "$driver_contents" 'backup_copy_file bin.v-sites "$LOCAL_BIN_DIR/v-sites" "$root/bin/v-sites"' "backup covers v-sites" &&
+    assert_contains "$zh_contents" "v sites" "zh cheatsheet lists v sites" &&
+    assert_contains "$en_contents" "v sites" "en cheatsheet lists v sites" &&
+    assert_contains "$ja_contents" "v sites" "ja cheatsheet lists v sites"
+}
+
+test_sites_prefers_sibling_helper_over_path() {
+  workdir="$TEST_ROOT/sites-helper"
+  bin_dir="$workdir/bin"
+  home_dir="$workdir/home"
+  config_dir="$home_dir/.config"
+  make_test_bin "$bin_dir"
+  mkdir -p "$config_dir"
+  write_script "$bin_dir/v-sites" '#!/bin/sh
+printf "stale v-sites from PATH\n"
+exit 42'
+
+  set +e
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="$bin_dir:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" sites --bookmarks --limit 1 2>&1
+  )"
+  status="$?"
+  set -e
+
+  if [ "$status" -ne 0 ]; then
+    printf 'assertion failed: v sites --bookmarks exited with %s: [%s]\n' "$status" "$output" >&2
+    return 1
+  fi
+
+  assert_contains "$output" "bookmarks.html" "v sites uses sibling v-sites" &&
+    assert_not_contains "$output" "stale v-sites from PATH" "v sites ignores stale PATH helper"
+}
+
+test_sites_rebuilds_from_chrome_history() {
+  workdir="$TEST_ROOT/sites-build"
+  home_dir="$workdir/home"
+  config_dir="$home_dir/.config"
+  history_dir="$home_dir/Library/Application Support/Google/Chrome/Default"
+  mkdir -p "$history_dir" "$config_dir"
+
+  python3 - "$history_dir/History" <<'PY'
+import sqlite3
+import sys
+
+con = sqlite3.connect(sys.argv[1])
+con.execute(
+    "create table urls (url text, title text, visit_count integer, typed_count integer, last_visit_time integer)"
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://example.com/docs?utm_source=test", "Example Docs", 42, 3, 13253760000000000),
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://example.com/pricing?promoCode=ABC", "Example Pricing", 8, 1, 13253770000000000),
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://zz166.cn/admin", "claude server - 管理后台", 9, 1, 13253780000000000),
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://g88.hk/users", "Claude Code - 用户管理系统", 7, 1, 13253790000000000),
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://www.krill-ai.com/app", "Krill AI", 22, 1, 13253800000000000),
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://www.krill-ai.com/app/shop?tab=balance", "Krill AI", 5, 1, 13253810000000000),
+)
+con.commit()
+con.close()
+PY
+
+  output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="$REPO_ROOT/templates/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" sites --rebuild --no-open
+  )"
+
+  html_file="$config_dir/vibe-cli-kit/sites/browser-navigation.html"
+  data_file="$config_dir/vibe-cli-kit/sites/navigation-data.json"
+  bookmarks_file="$config_dir/vibe-cli-kit/sites/bookmarks.html"
+  html_contents="$(cat "$html_file")"
+  data_contents="$(cat "$data_file")"
+  bookmarks_contents="$(cat "$bookmarks_file")"
+
+  bookmarks_output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    PATH="$REPO_ROOT/templates/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" sites --bookmarks
+  )"
+  if [ ! -f "$bookmarks_output" ]; then
+    printf 'assertion failed: bookmarks output is not a file: [%s]\n' "$bookmarks_output" >&2
+    return 1
+  fi
+
+  assert_contains "$output" "ok    built sites:" "sites rebuild output" &&
+    assert_contains "$output" "ok    bookmarks:" "sites rebuild writes bookmarks" &&
+    assert_contains "$html_contents" "常用网址导航" "sites html generated" &&
+    assert_contains "$data_contents" '"name": "高频网站"' "sites data includes high frequency group" &&
+    assert_contains "$data_contents" '"name": "服务后台 / 账单"' "sites data includes service billing group" &&
+    assert_contains "$data_contents" "管理后台" "sites data groups admin dashboards" &&
+    assert_contains "$data_contents" "用户管理系统" "sites data groups user dashboards" &&
+    assert_contains "$data_contents" "krill-ai.com" "sites data groups krill ai app" &&
+    assert_contains "$data_contents" "https://krill-ai.com/app/shop?tab=balance" "sites prefers krill balance deep link" &&
+    assert_contains "$data_contents" '"visit_count": 27' "sites merges krill host visits" &&
+    assert_contains "$data_contents" "example.com" "sites data includes history host" &&
+    assert_contains "$data_contents" '"visit_count": 50' "sites merges same host visits" &&
+    assert_not_contains "$data_contents" "utm_source" "sites data strips tracking params" &&
+    assert_not_contains "$data_contents" "promoCode" "sites data strips promo params" &&
+    assert_contains "$bookmarks_contents" '<!DOCTYPE NETSCAPE-Bookmark-file-1>' "sites bookmarks use importable format" &&
+    assert_contains "$bookmarks_contents" "服务后台 / 账单" "sites bookmarks preserve service billing folder" &&
+    assert_contains "$bookmarks_contents" "https://krill-ai.com/app/shop?tab=balance" "sites bookmarks include krill balance link" &&
+    assert_contains "$bookmarks_output" "bookmarks.html" "v sites --bookmarks prints bookmarks path"
+}
+
 test_install_prefers_configured_brew_on_macos() {
   workdir="$TEST_ROOT/install-brew-fallback"
   home_dir="$workdir/home"
@@ -746,6 +882,9 @@ run_test "v opens cheatsheet" test_v_opens_cheatsheet
 run_test "v passes --lang to cheatsheet" test_v_lang_passthrough
 run_test "cheatsheets document the v r restart shortcut" test_cheatsheets_document_restart_shortcut
 run_test "zellij shortcuts and starship are wired in installer, shell, doctor, updater, and cheatsheets" test_zellij_shortcuts_and_starship_are_wired
+run_test "v sites is wired into install, sync, doctor, diff, backup, and cheatsheets" test_sites_command_is_wired
+run_test "v sites uses its matching v-sites helper before stale PATH entries" test_sites_prefers_sibling_helper_over_path
+run_test "v sites rebuilds a local page from Chrome history" test_sites_rebuilds_from_chrome_history
 run_test "install.sh prefers configured brew on macOS" test_install_prefers_configured_brew_on_macos
 run_test "v update prefers brew from PATH on macOS" test_v_update_prefers_brew_path_fallback_on_macos
 run_test "terminal-cheatsheet prefers dark Ghostty theme" test_terminal_theme_ghostty_dark

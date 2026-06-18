@@ -1,0 +1,836 @@
+#!/usr/bin/env python3
+import argparse
+import html
+import json
+import os
+import plistlib
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit, urlunsplit
+
+
+HOME = Path.home()
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+SITES_DIR = Path(os.environ.get("VIBE_CLI_KIT_SITES_DIR", CONFIG_DIR / "vibe-cli-kit" / "sites"))
+HTML_FILE = SITES_DIR / "browser-navigation.html"
+DATA_FILE = SITES_DIR / "navigation-data.json"
+DASHBOARD_FILE = SITES_DIR / "dashboard-data.json"
+BOOKMARKS_FILE = SITES_DIR / "bookmarks.html"
+
+BROWSERS = [
+    {
+        "name": "Chrome Default",
+        "history": HOME / "Library/Application Support/Google/Chrome/Default/History",
+        "bookmarks": HOME / "Library/Application Support/Google/Chrome/Default/Bookmarks",
+    },
+    {
+        "name": "Chrome Profile 1",
+        "history": HOME / "Library/Application Support/Google/Chrome/Profile 1/History",
+        "bookmarks": HOME / "Library/Application Support/Google/Chrome/Profile 1/Bookmarks",
+    },
+    {
+        "name": "Edge Default",
+        "history": HOME / "Library/Application Support/Microsoft Edge/Default/History",
+        "bookmarks": HOME / "Library/Application Support/Microsoft Edge/Default/Bookmarks",
+    },
+]
+
+SAFARI = {
+    "name": "Safari",
+    "history": HOME / "Library/Safari/History.db",
+    "bookmarks": HOME / "Library/Safari/Bookmarks.plist",
+}
+
+TRACKING_PARAMS = {
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "utm_id",
+    "fbclid",
+    "gclid",
+    "msclkid",
+    "spm",
+    "token",
+    "access_token",
+    "refresh_token",
+    "auth",
+    "code",
+    "state",
+    "promo",
+    "promocode",
+    "promo_code",
+    "ref",
+    "referrer",
+    "source",
+}
+
+BLOCKED_TEXT = [
+    "accounts.google.com",
+    "login.microsoftonline.com",
+    "auth.openai.com",
+    "oauth/authorize",
+    "oauth2/authorize",
+    "/login",
+    "signin",
+    "sign-in",
+    "/auth/callback",
+    "/callback",
+    "github.com/search",
+    "google.com/search",
+    "bing.com/search",
+    "baidu.com/s",
+    "pastebin.com",
+    "hastebin.com",
+    "privatebin",
+    "gist.githubusercontent.com",
+]
+
+ADULT_TEXT = [
+    "porn",
+    "xvideos",
+    "xhamster",
+    "xnxx",
+    "91porn",
+    "redtube",
+    "youporn",
+    "spankbang",
+    "onlyfans",
+    "成人视频",
+    "色情",
+]
+
+SENSITIVE_TEXT = [
+    "apikey",
+    "api-key",
+    "secret",
+    "passwd",
+    "password",
+    "credential",
+    "session",
+    "redirect_uri",
+]
+
+BAD_TITLES = [
+    "temporary error",
+    "search results",
+    "无法打开页面",
+    "auth success",
+    "sign in",
+    "login",
+    "登录",
+]
+
+CATEGORY_RULES = [
+    ("本地开发", ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]),
+    ("服务后台 / 账单", ["krill-ai.com", "管理后台", "用户管理", "账号管理", "账户管理", "控制台", "后台", "余额", "账单", "用量", "充值", "套餐", "额度", "积分", "billing", "invoice", "balance", "usage", "credit", "credits", "wallet", "subscription", "payment", "admin panel", "user management"]),
+    ("AI 助手", ["chatgpt", "claude", "kimi", "doubao", "openai", "anthropic"]),
+    ("AI 平台 / API", ["dify", "tavily", "huggingface", "api.", "model", "bailian", "moonshot"]),
+    ("代码 / 仓库", ["github", "gitlab", "gitee", "stackoverflow", "npmjs", "developer", "docs.", "python", "rust-lang", "react", "nextjs", "nodejs", "docker", "cursor.com"]),
+    ("产品 / 项目后台", ["semibot", "semids", "semistep", "deepresearch", "deep-research", "admin", "management", "console"]),
+    ("广告 / 增长", ["adx", "dsp", "ssp", "campaign", "material", "marketing", "gemux"]),
+    ("云服务 / 部署", ["cloud.google", "aws.amazon", "azure", "cloudflare", "supabase", "firebase", "railway", "render", "vercel.com/dashboard", "aliyun"]),
+    ("邮箱 / 协作", ["mail.google", "gmail", "notion", "feishu", "larksuite", "slack", "figma", "miro", "linear", "jira", "trello", "docs.google", "drive.google", "office", "sharepoint"]),
+    ("社区 / 资讯", ["twitter", "x.com", "reddit", "news", "36kr", "sspai", "producthunt", "hackernews", "ycombinator", "linux.do", "xiaohongshu"]),
+    ("学习 / 文档", ["wikipedia", "medium", "substack", "zhihu", "bilibili", "youtube", "coursera", "udemy", "arxiv", "paper", "help"]),
+    ("金融 / 政务", ["bank", "paypal", "wise", "stripe", "alipay", "binance", "xueqiu", "tradingview", "finance", "investing", "immi.gov"]),
+    ("网络 / 设备", ["192.168.", "router", "luci", "wifi", "shadowsocks", "proxy", "vpn"]),
+    ("生活 / 出行", ["maps", "booking", "airbnb", "trip", "ctrip", "taobao", "tmall", "jd.com", "amazon", "meituan", "dianping"]),
+]
+
+SERVICE_REPRESENTATIVE_KEYWORDS = [
+    ("tab=balance", 900),
+    ("balance", 850),
+    ("wallet", 850),
+    ("余额", 850),
+    ("billing", 820),
+    ("invoice", 780),
+    ("账单", 780),
+    ("发票", 760),
+    ("usage", 740),
+    ("用量", 740),
+    ("credit", 720),
+    ("credits", 720),
+    ("积分", 720),
+    ("额度", 700),
+    ("subscription", 680),
+    ("payment", 660),
+    ("充值", 660),
+    ("account", 560),
+    ("账号", 560),
+    ("账户", 560),
+    ("orders", 480),
+    ("pricing", 440),
+    ("shop", 360),
+]
+
+FILTERED_COUNT = 0
+WARNINGS = []
+
+
+def warn(message):
+    WARNINGS.append(message)
+    print(f"warn  {message}", file=sys.stderr)
+
+
+def safari_permission_hint(path):
+    warn(f"Safari data is not readable: {path}")
+    print("hint  macOS requires Full Disk Access for the terminal app running this command.", file=sys.stderr)
+    print("hint  Open System Settings -> Privacy & Security -> Full Disk Access.", file=sys.stderr)
+    print("hint  Enable Terminal / iTerm / Ghostty, restart the terminal, then rerun:", file=sys.stderr)
+    print("hint    v sites --rebuild", file=sys.stderr)
+
+
+def normalize_url(url):
+    parts = urlsplit(url or "")
+    if parts.scheme not in {"http", "https"} or not parts.netloc:
+        return ""
+    host = parts.netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    query_pairs = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key.lower() not in TRACKING_PARAMS]
+    query = ""
+    if len(query_pairs) <= 2 and not any(key.lower() in {"token", "code", "password", "secret"} for key, _ in query_pairs):
+        query = "&".join(f"{key}={value}" for key, value in query_pairs)
+    path = parts.path.rstrip("/") or "/"
+    return urlunsplit((parts.scheme.lower(), host, path, query, ""))
+
+
+def host_of(url):
+    host = urlsplit(url).netloc.lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def is_local_url(url):
+    return host_of(url).split(":")[0] in {"localhost", "127.0.0.1", "0.0.0.0", "[::1]"}
+
+
+def should_skip(url, title):
+    global FILTERED_COUNT
+    parts = urlsplit(url)
+    joined = f"{host_of(url)}{parts.path}".lower()
+    title_lower = (title or "").lower()
+    query_keys = {key.lower() for key, _ in parse_qsl(parts.query, keep_blank_values=True)}
+    if not title.strip() or title_lower in {"new tab", "about:blank"}:
+        FILTERED_COUNT += 1
+        return True
+    if any(piece in joined for piece in BLOCKED_TEXT):
+        FILTERED_COUNT += 1
+        return True
+    if any(piece in joined for piece in ADULT_TEXT) or any(piece in title_lower for piece in ADULT_TEXT):
+        FILTERED_COUNT += 1
+        return True
+    if any(piece in url.lower() for piece in SENSITIVE_TEXT):
+        FILTERED_COUNT += 1
+        return True
+    if query_keys & {"token", "access_token", "refresh_token", "secret", "password", "code"}:
+        FILTERED_COUNT += 1
+        return True
+    if any(piece in title_lower for piece in BAD_TITLES):
+        FILTERED_COUNT += 1
+        return True
+    return False
+
+
+def copy_database(path, tmpdir, label):
+    if not path.exists():
+        return None
+    target = Path(tmpdir) / f"{label}.sqlite"
+    try:
+        shutil.copy2(path, target)
+        return target
+    except PermissionError:
+        if label.startswith("Safari"):
+            safari_permission_hint(path)
+        else:
+            warn(f"{label} is not readable: {path}")
+    except OSError as exc:
+        warn(f"{label} could not be copied: {exc}")
+    return None
+
+
+def chrome_time_to_iso(value):
+    if not value:
+        return ""
+    unix = (value / 1_000_000) - 11644473600
+    try:
+        return datetime.fromtimestamp(unix, tz=timezone.utc).date().isoformat()
+    except (OverflowError, OSError):
+        return ""
+
+
+def safari_time_to_iso(value):
+    if value is None:
+        return ""
+    try:
+        date = datetime(2001, 1, 1, tzinfo=timezone.utc) + timedelta(seconds=float(value))
+        return date.date().isoformat()
+    except (OverflowError, OSError, ValueError):
+        return ""
+
+
+def read_chrome_history(browser, tmpdir, limit):
+    db = copy_database(browser["history"], tmpdir, browser["name"].replace(" ", "_"))
+    if not db:
+        return []
+    try:
+        con = sqlite3.connect(db)
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            """
+            select url, title, visit_count, typed_count, last_visit_time
+            from urls
+            where visit_count > 0
+            order by visit_count desc, last_visit_time desc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+        con.close()
+    except sqlite3.DatabaseError as exc:
+        warn(f"{browser['name']} history could not be read: {exc}")
+        return []
+
+    items = []
+    for row in rows:
+        url = normalize_url(row["url"])
+        title = (row["title"] or host_of(url)).strip()
+        if not url or should_skip(url, title):
+            continue
+        items.append(
+            {
+                "url": url,
+                "title": title,
+                "visit_count": int(row["visit_count"] or 0),
+                "typed_count": int(row["typed_count"] or 0),
+                "last_visit": chrome_time_to_iso(row["last_visit_time"]),
+                "sources": [browser["name"]],
+                "bookmarked": False,
+            }
+        )
+    return items
+
+
+def read_safari_history(tmpdir, limit):
+    db = copy_database(SAFARI["history"], tmpdir, "Safari_History")
+    if not db:
+        return []
+    try:
+        con = sqlite3.connect(db)
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            """
+            select hi.url, hi.visit_count, hv.title, max(hv.visit_time) as last_visit_time
+            from history_items hi
+            left join history_visits hv on hv.history_item = hi.id
+            where hi.visit_count > 0
+            group by hi.id
+            order by hi.visit_count desc, last_visit_time desc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+        con.close()
+    except sqlite3.DatabaseError as exc:
+        warn(f"Safari history could not be read: {exc}")
+        return []
+
+    items = []
+    for row in rows:
+        url = normalize_url(row["url"])
+        title = (row["title"] or host_of(url)).strip()
+        if not url or should_skip(url, title):
+            continue
+        items.append(
+            {
+                "url": url,
+                "title": title,
+                "visit_count": int(row["visit_count"] or 0),
+                "typed_count": 0,
+                "last_visit": safari_time_to_iso(row["last_visit_time"]),
+                "sources": [SAFARI["name"]],
+                "bookmarked": False,
+            }
+        )
+    return items
+
+
+def walk_chrome_bookmark_node(node, browser_name, folder="", out=None):
+    out = out if out is not None else []
+    if node.get("type") == "url":
+        url = normalize_url(node.get("url", ""))
+        title = (node.get("name") or "").strip()
+        if url and not should_skip(url, title):
+            out.append(
+                {
+                    "url": url,
+                    "title": title or host_of(url),
+                    "visit_count": 0,
+                    "typed_count": 0,
+                    "last_visit": "",
+                    "sources": [browser_name],
+                    "bookmark_folder": folder,
+                    "bookmarked": True,
+                }
+            )
+    for child in node.get("children", []) or []:
+        next_folder = folder
+        if child.get("type") == "folder" and child.get("name"):
+            next_folder = f"{folder} / {child['name']}".strip(" /")
+        walk_chrome_bookmark_node(child, browser_name, next_folder, out)
+    return out
+
+
+def read_chrome_bookmarks(browser):
+    path = browser["bookmarks"]
+    if not path.exists():
+        return []
+    try:
+        with path.open() as fh:
+            data = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        warn(f"{browser['name']} bookmarks could not be read: {exc}")
+        return []
+
+    items = []
+    for root in (data.get("roots") or {}).values():
+        if isinstance(root, dict):
+            walk_chrome_bookmark_node(root, browser["name"], "", items)
+    return items
+
+
+def walk_safari_bookmark_node(node, folder="", out=None):
+    out = out if out is not None else []
+    node_type = node.get("WebBookmarkType")
+    title = (node.get("Title") or "").strip()
+    if node_type == "WebBookmarkTypeLeaf":
+        url = normalize_url(node.get("URLString", ""))
+        uri_title = ((node.get("URIDictionary") or {}).get("title") or title or "").strip()
+        if url and not should_skip(url, uri_title):
+            out.append(
+                {
+                    "url": url,
+                    "title": uri_title or host_of(url),
+                    "visit_count": 0,
+                    "typed_count": 0,
+                    "last_visit": "",
+                    "sources": [SAFARI["name"]],
+                    "bookmark_folder": folder,
+                    "bookmarked": True,
+                }
+            )
+    for child in node.get("Children", []) or []:
+        next_folder = folder
+        child_title = (child.get("Title") or "").strip()
+        if child.get("WebBookmarkType") == "WebBookmarkTypeList" and child_title:
+            next_folder = f"{folder} / {child_title}".strip(" /")
+        walk_safari_bookmark_node(child, next_folder, out)
+    return out
+
+
+def read_safari_bookmarks():
+    path = SAFARI["bookmarks"]
+    if not path.exists():
+        return []
+    try:
+        with path.open("rb") as fh:
+            data = plistlib.load(fh)
+    except PermissionError:
+        safari_permission_hint(path)
+        return []
+    except (OSError, plistlib.InvalidFileException) as exc:
+        warn(f"Safari bookmarks could not be read: {exc}")
+        return []
+    return walk_safari_bookmark_node(data)
+
+
+def merge_key(item):
+    if is_local_url(item["url"]):
+        parts = urlsplit(item["url"])
+        return f"local::{parts.scheme.lower()}://{host_of(item['url'])}"
+    return f"host::{host_of(item['url'])}"
+
+
+def representative_rank(item):
+    rank = score(item)
+    if category_for(item) == "服务后台 / 账单":
+        text = f"{item['url']} {item['title']}".lower()
+        rank += 10_000
+        for keyword, weight in SERVICE_REPRESENTATIVE_KEYWORDS:
+            if keyword in text:
+                rank += weight
+    return rank
+
+
+def absorb_item(target, source, update_title=False):
+    target["visit_count"] += source.get("visit_count", 0)
+    target["typed_count"] += source.get("typed_count", 0)
+    target["bookmarked"] = target.get("bookmarked") or source.get("bookmarked")
+    if source.get("bookmark_folder") and not target.get("bookmark_folder"):
+        target["bookmark_folder"] = source["bookmark_folder"]
+    target["sources"] = sorted(set(target["sources"]) | set(source["sources"]))
+    if source.get("last_visit", "") > target.get("last_visit", ""):
+        target["last_visit"] = source["last_visit"]
+    if update_title and len(source["title"]) > len(target["title"]) and source.get("visit_count", 0) >= target.get("visit_count", 0):
+        target["title"] = source["title"]
+
+
+def merge_items(items):
+    merged = {}
+    for item in items:
+        key = merge_key(item)
+        item["_representative_rank"] = representative_rank(item)
+        current = merged.get(key)
+        if not current:
+            merged[key] = item
+            continue
+
+        if item["_representative_rank"] > current.get("_representative_rank", representative_rank(current)):
+            absorb_item(item, current)
+            merged[key] = item
+        else:
+            absorb_item(current, item, update_title=True)
+    return list(merged.values())
+
+
+def category_for(item):
+    text = f"{item['url']} {item['title']}".lower()
+    for category, needles in CATEGORY_RULES:
+        if any(needle in text for needle in needles):
+            return category
+    return "其他网站"
+
+
+def describe(item):
+    category = item.get("category", "")
+    if item.get("bookmarked") and item.get("bookmark_folder"):
+        return f"书签：{item['bookmark_folder']}。"
+    if category == "本地开发":
+        return "本机开发服务，按端口和访问频率保留。"
+    if category == "AI 平台 / API":
+        return "模型服务、API 控制台或智能体平台。"
+    if category == "服务后台 / 账单":
+        return "服务管理、账号数据、用量、余额或账单入口。"
+    if category == "云服务 / 部署":
+        return "云资源、部署、域名或观测控制台。"
+    if category == "邮箱 / 协作":
+        return "邮件、文档协作或团队工作流。"
+    if category == "代码 / 仓库":
+        return "代码仓库、开发文档或技术社区入口。"
+    if item["visit_count"] >= 20:
+        return "高频访问，建议保留在首页。"
+    if item["last_visit"]:
+        return f"最近访问于 {item['last_visit']}。"
+    return "常用页面入口。"
+
+
+def score(item):
+    return item["visit_count"] * 3 + item["typed_count"] * 6 + (18 if item["bookmarked"] else 0) + len(item["sources"]) * 4
+
+
+def display_name(item):
+    title = " ".join((item["title"] or "").split())
+    if len(title) > 58:
+        title = title[:55].rstrip() + "..."
+    return title or host_of(item["url"])
+
+
+def compact_item(item):
+    return {
+        "title": display_name(item),
+        "url": item["url"],
+        "host": host_of(item["url"]),
+        "description": item.get("description") or describe(item),
+        "visit_count": item.get("visit_count", 0),
+        "bookmarked": item.get("bookmarked", False),
+        "sources": item.get("sources", []),
+        "category": item.get("category", "其他网站"),
+        "last_visit": item.get("last_visit", ""),
+    }
+
+
+def build_groups(items):
+    grouped = defaultdict(list)
+    for item in sorted(items, key=score, reverse=True):
+        item["category"] = category_for(item)
+        item["description"] = describe(item)
+        grouped[item["category"]].append(item)
+
+    groups = [
+        {
+            "name": "高频网站",
+            "items": [compact_item(item) for item in sorted(items, key=score, reverse=True)[:24]],
+        }
+    ]
+    for category, raw_items in sorted(grouped.items(), key=lambda pair: (-len(pair[1]), pair[0])):
+        limit = 24 if category in {"本地开发", "服务后台 / 账单"} else 18 if category in {"产品 / 项目后台", "AI 平台 / API", "代码 / 仓库"} else 12
+        groups.append({"name": category, "items": [compact_item(item) for item in sorted(raw_items, key=score, reverse=True)[:limit]]})
+    return groups
+
+
+def build_html(groups, stats):
+    generated = html.escape(datetime.now().strftime("%Y-%m-%d %H:%M"))
+    groups_json = json.dumps(groups, ensure_ascii=False)
+    stats_json = json.dumps(stats, ensure_ascii=False)
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>常用网址导航</title>
+  <style>
+    :root {{ --bg:#f7f8f5; --panel:#fff; --ink:#171814; --muted:#687064; --line:#d9dfd4; --soft:#eef1ea; --accent:#176c5f; --gold:#a27621; --shadow:0 14px 38px rgba(37,45,35,.10); }}
+    * {{ box-sizing:border-box; }}
+    body {{ margin:0; font-family:Avenir Next,Hiragino Sans GB,PingFang SC,Helvetica Neue,sans-serif; background:var(--bg); color:var(--ink); }}
+    .shell {{ max-width:1320px; margin:0 auto; padding:28px 22px 52px; }}
+    header {{ display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:22px; margin-bottom:18px; }}
+    .hero,.summary,.sidebar,.card {{ background:rgba(255,255,255,.92); border:1px solid var(--line); box-shadow:var(--shadow); }}
+    .hero {{ padding:28px; }}
+    .eyebrow {{ color:var(--accent); font-size:13px; font-weight:800; margin-bottom:10px; }}
+    h1 {{ font-family:Georgia,Songti SC,serif; font-size:clamp(34px,5vw,62px); line-height:1; margin:0; letter-spacing:0; }}
+    .sub {{ color:var(--muted); max-width:760px; line-height:1.7; margin:14px 0 0; }}
+    .summary {{ display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); overflow:hidden; }}
+    .stat {{ background:#fbfcf9; padding:18px; }}
+    .stat b {{ display:block; font-size:27px; line-height:1; margin-bottom:6px; }}
+    .stat span {{ color:var(--muted); font-size:12px; }}
+    .layout {{ display:grid; grid-template-columns:276px minmax(0,1fr); gap:18px; align-items:start; }}
+    .sidebar {{ position:sticky; top:18px; display:grid; gap:14px; padding:14px; max-height:calc(100vh - 36px); overflow:auto; }}
+    .sidebarTitle {{ color:var(--muted); font-size:12px; font-weight:800; letter-spacing:.08em; }}
+    input {{ width:100%; height:46px; border:1px solid var(--line); background:#fff; color:var(--ink); padding:0 16px; font:inherit; outline:none; }}
+    input:focus {{ border-color:var(--accent); }}
+    .tabs {{ display:grid; gap:7px; }}
+    .tab {{ display:flex; justify-content:space-between; gap:10px; border:1px solid var(--line); background:#fff; color:var(--muted); padding:9px 11px; text-align:left; font:inherit; cursor:pointer; min-height:38px; }}
+    .tab.active {{ background:var(--ink); border-color:var(--ink); color:white; }}
+    .category {{ margin-top:22px; scroll-margin-top:130px; }}
+    .category h2 {{ display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin:0 0 12px; font-size:20px; }}
+    .category h2 span {{ color:var(--muted); font-size:13px; font-weight:500; }}
+    .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(286px,1fr)); gap:13px; }}
+    .card {{ min-height:158px; display:grid; grid-template-rows:auto auto 1fr auto; gap:10px; padding:15px; color:inherit; text-decoration:none; transition:transform .16s ease,border-color .16s ease; }}
+    .card:hover {{ transform:translateY(-3px); border-color:var(--accent); }}
+    .cardTop {{ display:flex; justify-content:space-between; align-items:center; gap:12px; }}
+    .host {{ color:var(--accent); font-size:12px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+    .heat {{ color:var(--gold); font-size:12px; font-weight:800; flex:0 0 auto; }}
+    .title {{ font-weight:750; line-height:1.35; overflow-wrap:anywhere; }}
+    .desc {{ color:var(--muted); line-height:1.5; font-size:13px; }}
+    .meta {{ display:flex; gap:7px; flex-wrap:wrap; align-self:end; }}
+    .tag {{ border:1px solid var(--line); padding:4px 7px; font-size:11px; color:var(--muted); background:var(--soft); }}
+    .tag.strong {{ background:rgba(23,108,95,.10); border-color:rgba(23,108,95,.24); color:var(--accent); }}
+    .empty {{ display:none; border:1px dashed var(--line); background:rgba(255,255,255,.7); padding:40px; color:var(--muted); text-align:center; }}
+    footer {{ margin-top:34px; color:var(--muted); font-size:12px; line-height:1.7; }}
+    @media (max-width:760px) {{ header,.layout {{ grid-template-columns:1fr; }} .sidebar {{ position:static; max-height:none; }} .tabs {{ grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); }} }}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="hero">
+        <div class="eyebrow">PRIVATE START PAGE</div>
+        <h1>常用网址导航</h1>
+        <p class="sub">基于 Chrome、Edge、Safari 的书签和高频历史记录生成。默认过滤登录回跳、token、敏感路径、粘贴站和成人内容；所有结果只写入本机配置目录。</p>
+      </div>
+      <div class="summary" id="stats"></div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebarTitle">FILTERS</div>
+        <input id="search" type="search" placeholder="搜索标题、说明或网址">
+        <nav class="tabs" id="tabs"></nav>
+      </aside>
+      <section id="content"></section>
+    </div>
+    <div class="empty" id="empty">没有匹配的网址</div>
+    <footer>生成时间：{generated}。本页面是本地静态文件，不会上传浏览记录；浏览器数据库只会复制到临时目录读取，脚本结束后自动清理。</footer>
+  </main>
+  <script>
+    const groups = {groups_json};
+    const stats = {stats_json};
+    const statsEl = document.querySelector('#stats');
+    const content = document.querySelector('#content');
+    const empty = document.querySelector('#empty');
+    const search = document.querySelector('#search');
+    const tabs = document.querySelector('#tabs');
+    let activeCategory = '';
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[ch]));
+    const attr = value => esc(value).replace(/`/g, '&#96;');
+    statsEl.innerHTML = [
+      ['网址', stats.total_items],
+      ['来源', stats.sources],
+      ['分类', groups.length],
+      ['已过滤', stats.filtered_items]
+    ].map(([label, value]) => `<div class="stat"><b>${{esc(value)}}</b><span>${{esc(label)}}</span></div>`).join('');
+    function renderTabs() {{
+      tabs.innerHTML = [`<button class="tab ${{activeCategory ? '' : 'active'}}" data-category=""><span>全部</span><span>${{stats.total_items}}</span></button>`]
+        .concat(groups.map(g => `<button class="tab ${{activeCategory === g.name ? 'active' : ''}}" data-category="${{attr(g.name)}}"><span>${{esc(g.name)}}</span><span>${{g.items.length}}</span></button>`))
+        .join('');
+    }}
+    function render() {{
+      const q = search.value.trim().toLowerCase();
+      const c = activeCategory;
+      let visible = 0;
+      content.innerHTML = groups.filter(group => !c || group.name === c).map(group => {{
+        const items = group.items.filter(item => {{
+          const text = `${{item.title}} ${{item.description}} ${{item.url}} ${{item.sources.join(' ')}}`.toLowerCase();
+          return !q || text.includes(q);
+        }});
+        if (!items.length) return '';
+        visible += items.length;
+        return `<section class="category"><h2>${{esc(group.name)}} <span>${{items.length}} 个</span></h2><div class="grid">${{items.map(item => `
+          <a class="card" href="${{attr(item.url)}}" target="_blank" rel="noreferrer">
+            <div class="cardTop"><div class="host">${{esc(item.host)}}</div><div class="heat">${{item.visit_count ? esc(item.visit_count) + ' 次' : '书签'}}</div></div>
+            <div class="title">${{esc(item.title)}}</div>
+            <div class="desc">${{esc(item.description)}}</div>
+            <div class="meta">${{item.bookmarked ? '<span class="tag strong">书签</span>' : ''}}<span class="tag">${{esc(item.sources.join(' / '))}}</span></div>
+          </a>`).join('')}}</div></section>`;
+      }}).join('');
+      empty.style.display = visible ? 'none' : 'block';
+      renderTabs();
+    }}
+    search.addEventListener('input', render);
+    tabs.addEventListener('click', event => {{
+      const button = event.target.closest('button[data-category]');
+      if (!button) return;
+      activeCategory = button.dataset.category;
+      render();
+    }});
+    render();
+  </script>
+</body>
+</html>
+"""
+
+
+def build_bookmarks_html(groups):
+    now = str(int(datetime.now(tz=timezone.utc).timestamp()))
+    lines = [
+        "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+        '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+        "<TITLE>vibe-cli-kit 常用网址导航</TITLE>",
+        "<H1>vibe-cli-kit 常用网址导航</H1>",
+        "<DL><p>",
+    ]
+    seen = set()
+    for group in groups:
+        lines.append(f'  <DT><H3 ADD_DATE="{now}">{html.escape(group["name"])}</H3>')
+        lines.append("  <DL><p>")
+        for item in group.get("items", []):
+            url = item.get("url", "")
+            if not url:
+                continue
+            key = (group["name"], url)
+            if key in seen:
+                continue
+            seen.add(key)
+            title = html.escape(item.get("title") or item.get("host") or url)
+            href = html.escape(url, quote=True)
+            lines.append(f'    <DT><A HREF="{href}" ADD_DATE="{now}">{title}</A>')
+        lines.append("  </DL><p>")
+    lines.append("</DL><p>")
+    return "\n".join(lines) + "\n"
+
+
+def build(limit):
+    global FILTERED_COUNT
+    FILTERED_COUNT = 0
+    all_items = []
+    with tempfile.TemporaryDirectory(prefix="vibe-sites-") as tmpdir:
+        for browser in BROWSERS:
+            all_items.extend(read_chrome_history(browser, tmpdir, limit))
+            all_items.extend(read_chrome_bookmarks(browser))
+        all_items.extend(read_safari_history(tmpdir, limit))
+        all_items.extend(read_safari_bookmarks())
+
+    merged = sorted(merge_items(all_items), key=score, reverse=True)
+    groups = build_groups(merged)
+    stats = {
+        "total_items": sum(len(group["items"]) for group in groups),
+        "sources": len({source for group in groups for item in group["items"] for source in item["sources"]}),
+        "filtered_items": FILTERED_COUNT,
+        "warnings": WARNINGS,
+    }
+    dashboard = {"stats": stats, "groups": groups}
+    SITES_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_FILE.write_text(json.dumps(groups, ensure_ascii=False, indent=2))
+    DASHBOARD_FILE.write_text(json.dumps(dashboard, ensure_ascii=False, indent=2))
+    HTML_FILE.write_text(build_html(groups, stats))
+    BOOKMARKS_FILE.write_text(build_bookmarks_html(groups))
+    print(f"ok    built sites: {HTML_FILE}")
+    print(f"ok    bookmarks: {BOOKMARKS_FILE}")
+    print(f"ok    data: {DATA_FILE}")
+    if not groups:
+        warn("no browser history or bookmarks were found; the page was still generated")
+    return HTML_FILE
+
+
+def open_file(path):
+    if os.environ.get("VIBE_SITES_NO_OPEN") == "1":
+        print(path)
+        return 0
+    if sys.platform == "darwin":
+        cmd = ["open", str(path)]
+    elif os.environ.get("WSL_DISTRO_NAME"):
+        cmd = ["wslview", str(path)]
+    else:
+        cmd = ["xdg-open", str(path)]
+    try:
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"ok    opened sites: {path}")
+        return 0
+    except FileNotFoundError:
+        warn(f"open command not found; open this file manually: {path}")
+        return 1
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        prog="v sites",
+        description="Build and open a local browser-history start page.",
+    )
+    parser.add_argument("--rebuild", action="store_true", help="rebuild the sites page before opening it")
+    parser.add_argument("--open", action="store_true", help="open the existing sites page without rebuilding")
+    parser.add_argument("--bookmarks", action="store_true", help="print the browser-importable bookmarks HTML path")
+    parser.add_argument("--no-open", action="store_true", help="build or check without opening a browser")
+    parser.add_argument("--print-path", action="store_true", help="print the generated HTML path")
+    parser.add_argument("--limit", type=int, default=1200, help="history rows to inspect per browser")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv or sys.argv[1:])
+    if args.limit < 1:
+        print("fail  --limit must be positive", file=sys.stderr)
+        return 1
+
+    needs_rebuild = args.rebuild or (args.bookmarks and not BOOKMARKS_FILE.exists()) or (not args.open and not args.bookmarks and not HTML_FILE.exists())
+    if needs_rebuild:
+        path = build(args.limit)
+    else:
+        path = HTML_FILE
+        if not path.exists():
+            print(f"fail  sites page does not exist: {path}", file=sys.stderr)
+            print("hint  run: v sites --rebuild", file=sys.stderr)
+            return 1
+
+    if args.bookmarks:
+        if not BOOKMARKS_FILE.exists():
+            print(f"fail  bookmarks file does not exist: {BOOKMARKS_FILE}", file=sys.stderr)
+            print("hint  run: v sites --rebuild --bookmarks", file=sys.stderr)
+            return 1
+        print(BOOKMARKS_FILE)
+        return 0
+
+    if args.print_path:
+        print(path)
+    if args.no_open:
+        return 0
+    return open_file(path)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -2,6 +2,7 @@
 
 set -eu
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}"
 KIT_DIR="$CONFIG_DIR/vibe-cli-kit"
 TEMPLATE_DIR="$KIT_DIR/templates"
@@ -42,6 +43,7 @@ Usage:
   v update [--dry-run] [--no-sync]
   v session [code|backend|frontend|ai] [--name SESSION] [--reset]
   v project
+  v sites [--rebuild] [--open] [--bookmarks] [--no-open]
   v r --port PORT [--wait SECONDS] [--] [COMMAND...]
   v --help
 EOF
@@ -123,6 +125,24 @@ Output:
   - detected project type
   - preferred package runner
   - suggested dev / test commands
+EOF
+}
+
+sites_help() {
+  cat <<'EOF'
+Usage:
+  v sites [--rebuild] [--open] [--bookmarks] [--no-open]
+
+Behavior:
+  - opens the local browser-history start page
+  - rebuilds it automatically when it does not exist
+  - --rebuild scans Chrome / Edge / Safari history and bookmarks again
+  - --bookmarks prints a browser-importable bookmarks HTML file path
+  - Safari may require Full Disk Access for the terminal app
+
+Output:
+  ~/.config/vibe-cli-kit/sites/browser-navigation.html
+  ~/.config/vibe-cli-kit/sites/bookmarks.html
 EOF
 }
 
@@ -384,13 +404,14 @@ sync_bin() {
   copy_file "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   copy_file "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx"
   copy_file "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx"
+  copy_file "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites"
   copy_file "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v"
   copy_file "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e"
   copy_file "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif"
   if [ "$SYNC_DRY_RUN" -eq 1 ]; then
-    printf 'dry   chmod +x %s %s %s %s %s %s\n' "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+    printf 'dry   chmod +x %s %s %s %s %s %s %s\n' "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v-sites" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
   else
-    chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+    chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v-sites" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
     printf 'sync  chmod +x scripts in %s\n' "$LOCAL_BIN_DIR"
   fi
 }
@@ -558,6 +579,7 @@ backup_target() {
       backup_copy_file bin.terminal-cheatsheet "$LOCAL_BIN_DIR/terminal-cheatsheet" "$root/bin/terminal-cheatsheet"
       backup_copy_file bin.tmx "$LOCAL_BIN_DIR/tmx" "$root/bin/tmx"
       backup_copy_file bin.zmx "$LOCAL_BIN_DIR/zmx" "$root/bin/zmx"
+      backup_copy_file bin.v-sites "$LOCAL_BIN_DIR/v-sites" "$root/bin/v-sites"
       backup_copy_file bin.v "$LOCAL_BIN_DIR/v" "$root/bin/v"
       backup_copy_file bin.e "$LOCAL_BIN_DIR/e" "$root/bin/e"
       backup_copy_file bin.fif "$LOCAL_BIN_DIR/fif" "$root/bin/fif"
@@ -694,6 +716,7 @@ diff_target() {
       run_diff_pair "bin.terminal-cheatsheet" "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet" || diff_found=1
       run_diff_pair "bin.tmx" "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx" || diff_found=1
       run_diff_pair "bin.zmx" "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx" || diff_found=1
+      run_diff_pair "bin.v-sites" "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites" || diff_found=1
       run_diff_pair "bin.v" "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v" || diff_found=1
       run_diff_pair "bin.e" "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e" || diff_found=1
       run_diff_pair "bin.fif" "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif" || diff_found=1
@@ -1527,6 +1550,35 @@ project_command() {
   fi
 }
 
+sites_command() {
+  case "${1:-}" in
+    -h|--help|help)
+      sites_help
+      exit 0
+      ;;
+  esac
+
+  if [ -x "$SCRIPT_DIR/v-sites" ]; then
+    exec "$SCRIPT_DIR/v-sites" "$@"
+  fi
+
+  if [ -x "$LOCAL_BIN_DIR/v-sites" ]; then
+    exec "$LOCAL_BIN_DIR/v-sites" "$@"
+  fi
+
+  if [ -x "$TEMPLATE_DIR/bin/v-sites" ]; then
+    exec "$TEMPLATE_DIR/bin/v-sites" "$@"
+  fi
+
+  if command -v v-sites >/dev/null 2>&1; then
+    exec v-sites "$@"
+  fi
+
+  printf 'fail  v-sites not found\n' >&2
+  printf 'hint  re-run: sh install.sh --only-config\n' >&2
+  exit 1
+}
+
 restart_detection_hint() {
   project_type="$(detect_project_type)"
   runner="$(project_runner_label)"
@@ -1998,6 +2050,7 @@ doctor() {
   check_file "script: terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   check_file "script: tmx" "$LOCAL_BIN_DIR/tmx"
   check_file "script: zmx" "$LOCAL_BIN_DIR/zmx"
+  check_file "script: v-sites" "$LOCAL_BIN_DIR/v-sites"
   check_file "script: v" "$LOCAL_BIN_DIR/v"
   check_file "script: e" "$LOCAL_BIN_DIR/e"
   check_file "script: fif" "$LOCAL_BIN_DIR/fif"
@@ -2063,6 +2116,10 @@ sync)
   project)
     shift
     project_command "$@"
+    ;;
+  sites)
+    shift
+    sites_command "$@"
     ;;
   r|restart)
     shift

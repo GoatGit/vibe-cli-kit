@@ -39,6 +39,8 @@ v backup --only tmux         # back up tmux config only
 v diff --only tmux           # compare tmux template and deployed config
 v update --dry-run --no-sync # preview package updates without config sync
 v project                    # detect project type and suggested commands
+v sites --rebuild            # build the local browser-history start page
+v sites --bookmarks          # print the browser-importable bookmarks file
 v sync --dry-run --only tmux # preview tmux config sync
 v session code               # open the code workspace
 e                            # fuzzy-pick a file and open with nvim

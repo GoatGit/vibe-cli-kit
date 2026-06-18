@@ -7,6 +7,7 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, zellij, fzf, fd, atuin, zoxide, s
 - `v`: open this cheatsheet with no arguments
 - `v doctor`: check tool/config health
 - `v project`: detect project type and suggested commands
+- `v sites`: open the local browser-history start page
 - `v r 3000`: free the port and restart the current project
 - `v session code`: open the `code` workspace
 - `e`: fuzzy-open a file in `nvim`
@@ -30,6 +31,8 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, zellij, fzf, fd, atuin, zoxide, s
 - `v sync --dry-run --only tmux`: preview tmux config sync
 - `v update --dry-run --no-sync`: preview package updates only
 - `v project`: detect the current project type and suggested commands
+- `v sites --rebuild`: rescan Chrome / Edge / Safari history and bookmarks
+- `v sites --bookmarks`: print a browser-importable bookmarks file
 - `v r 3000`: free the port and run the detected project start command
 - `v session code|backend|frontend|ai`: create or reuse workspaces
 - `p`: jump to a project directory

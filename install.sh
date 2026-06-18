@@ -469,10 +469,11 @@ install_configs() {
   run_cmd cp "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$LOCAL_BIN_DIR/terminal-cheatsheet"
   run_cmd cp "$TEMPLATE_DIR/bin/tmx" "$LOCAL_BIN_DIR/tmx"
   run_cmd cp "$TEMPLATE_DIR/bin/zmx" "$LOCAL_BIN_DIR/zmx"
+  run_cmd cp "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites"
   run_cmd cp "$TEMPLATE_DIR/bin/v" "$LOCAL_BIN_DIR/v"
   run_cmd cp "$TEMPLATE_DIR/bin/e" "$LOCAL_BIN_DIR/e"
   run_cmd cp "$TEMPLATE_DIR/bin/fif" "$LOCAL_BIN_DIR/fif"
-  run_cmd chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
+  run_cmd chmod +x "$LOCAL_BIN_DIR/terminal-cheatsheet" "$LOCAL_BIN_DIR/tmx" "$LOCAL_BIN_DIR/zmx" "$LOCAL_BIN_DIR/v-sites" "$LOCAL_BIN_DIR/v" "$LOCAL_BIN_DIR/e" "$LOCAL_BIN_DIR/fif"
 
   for cheatsheet in "$TEMPLATE_DIR"/cheatsheets/*.md; do
     run_cmd cp "$cheatsheet" "$CHEATSHEET_DIR/"
@@ -481,6 +482,7 @@ install_configs() {
   run_cmd cp "$TEMPLATE_DIR/bin/terminal-cheatsheet" "$TEMPLATE_STORE_DIR/bin/terminal-cheatsheet"
   run_cmd cp "$TEMPLATE_DIR/bin/tmx" "$TEMPLATE_STORE_DIR/bin/tmx"
   run_cmd cp "$TEMPLATE_DIR/bin/zmx" "$TEMPLATE_STORE_DIR/bin/zmx"
+  run_cmd cp "$TEMPLATE_DIR/bin/v-sites" "$TEMPLATE_STORE_DIR/bin/v-sites"
   run_cmd cp "$TEMPLATE_DIR/bin/v" "$TEMPLATE_STORE_DIR/bin/v"
   run_cmd cp "$TEMPLATE_DIR/bin/e" "$TEMPLATE_STORE_DIR/bin/e"
   run_cmd cp "$TEMPLATE_DIR/bin/fif" "$TEMPLATE_STORE_DIR/bin/fif"
@@ -631,6 +633,7 @@ $(msg useful_commands)
   zma
   zml
   zellij
+  v sites
   y
   nvim
   rg foo
