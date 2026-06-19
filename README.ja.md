@@ -33,6 +33,7 @@ v diff --only tmux
 v update --dry-run --no-sync
 v project
 v sites --rebuild
+v sites --rebuild --inspect-cache
 v sites --bookmarks
 v sync --dry-run --only tmux
 v session code
@@ -150,6 +151,7 @@ v diff --only tmux           # tmux テンプレートとの差分を確認
 v update --dry-run --no-sync # 設定同期なしで更新をプレビュー
 v project                    # プロジェクト種別と推奨コマンドを表示
 v sites --rebuild            # ローカルのよく使うサイトページを生成
+v sites --rebuild --inspect-cache # ローカルブラウザキャッシュの信号で分類を改善
 v sites --bookmarks          # ブラウザにインポートできる bookmarks HTML を表示
 v sync --dry-run --only tmux # tmux 設定同期をプレビュー
 v session code               # code workspace を開く
@@ -200,6 +202,8 @@ glow README.ja.md            # glow で README を読む
 - `v project`：現在のプロジェクト種別と推奨コマンドを表示
 - `v sites`：ローカルのよく使うサイトページを開く
 - `v sites --rebuild`：Chrome / Edge / Safari の履歴とブックマークを再スキャン
+- `v sites`：同じサイトのよく使うパスを quick link にまとめ、local dev port を高頻度グループから分離
+- `v sites --rebuild --inspect-cache`：ローカルブラウザキャッシュのキーワード信号で分類を改善
 - `v sites --bookmarks`：ブラウザにインポートできる bookmarks HTML を表示
 - `v sync --dry-run --only tmux`：設定同期をプレビュー
 - `v session code`：コーディング用 workspace を作成または再利用
@@ -240,6 +244,7 @@ glow README.ja.md            # glow で README を読む
 - `v project`
 - `v sites`
 - `v sites --rebuild`
+- `v sites --rebuild --inspect-cache`
 - `v sites --bookmarks`
 - `v sync --dry-run --only tmux`
 - `v session code`

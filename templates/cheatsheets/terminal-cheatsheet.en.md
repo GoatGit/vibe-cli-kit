@@ -32,6 +32,7 @@ Included tools: Ghostty, Yazi, lsd, bat, tmux, zellij, fzf, fd, atuin, zoxide, s
 - `v update --dry-run --no-sync`: preview package updates only
 - `v project`: detect the current project type and suggested commands
 - `v sites --rebuild`: rescan Chrome / Edge / Safari history and bookmarks
+- `v sites --rebuild --inspect-cache`: improve categories with local browser cache signals
 - `v sites --bookmarks`: print a browser-importable bookmarks file
 - `v r 3000`: free the port and run the detected project start command
 - `v session code|backend|frontend|ai`: create or reuse workspaces

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import argparse
+import base64
 import html
 import json
 import os
 import plistlib
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -28,16 +30,25 @@ BROWSERS = [
         "name": "Chrome Default",
         "history": HOME / "Library/Application Support/Google/Chrome/Default/History",
         "bookmarks": HOME / "Library/Application Support/Google/Chrome/Default/Bookmarks",
+        "favicons": HOME / "Library/Application Support/Google/Chrome/Default/Favicons",
     },
     {
         "name": "Chrome Profile 1",
         "history": HOME / "Library/Application Support/Google/Chrome/Profile 1/History",
         "bookmarks": HOME / "Library/Application Support/Google/Chrome/Profile 1/Bookmarks",
+        "favicons": HOME / "Library/Application Support/Google/Chrome/Profile 1/Favicons",
+    },
+    {
+        "name": "Chrome Profile 2",
+        "history": HOME / "Library/Application Support/Google/Chrome/Profile 2/History",
+        "bookmarks": HOME / "Library/Application Support/Google/Chrome/Profile 2/Bookmarks",
+        "favicons": HOME / "Library/Application Support/Google/Chrome/Profile 2/Favicons",
     },
     {
         "name": "Edge Default",
         "history": HOME / "Library/Application Support/Microsoft Edge/Default/History",
         "bookmarks": HOME / "Library/Application Support/Microsoft Edge/Default/Bookmarks",
+        "favicons": HOME / "Library/Application Support/Microsoft Edge/Default/Favicons",
     },
 ]
 
@@ -46,6 +57,17 @@ SAFARI = {
     "history": HOME / "Library/Safari/History.db",
     "bookmarks": HOME / "Library/Safari/Bookmarks.plist",
 }
+
+CACHE_DIRS = [
+    HOME / "Library/Caches/Google/Chrome/Default/Cache/Cache_Data",
+    HOME / "Library/Caches/Google/Chrome/Profile 1/Cache/Cache_Data",
+    HOME / "Library/Caches/Microsoft Edge/Default/Cache/Cache_Data",
+    HOME / "Library/Containers/com.apple.Safari/Data/Library/Caches/com.apple.Safari",
+    HOME / "Library/Caches/com.apple.Safari",
+]
+
+MAX_CACHE_FILE_BYTES = 2 * 1024 * 1024
+MAX_CACHE_FILES = 1200
 
 TRACKING_PARAMS = {
     "utm_source",
@@ -145,6 +167,12 @@ CATEGORY_RULES = [
     ("生活 / 出行", ["maps", "booking", "airbnb", "trip", "ctrip", "taobao", "tmall", "jd.com", "amazon", "meituan", "dianping"]),
 ]
 
+STRONG_CATEGORY_RULES = [
+    ("本地开发", ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"]),
+    ("代码 / 仓库", ["github.com", "gist.github.com", "gitlab.com", "gitee.com", "npmjs.com", "stackoverflow.com"]),
+    ("社区 / 资讯", ["linux.do", "xiaohongshu.com", "reddit.com", "news.ycombinator.com"]),
+]
+
 SERVICE_REPRESENTATIVE_KEYWORDS = [
     ("tab=balance", 900),
     ("balance", 850),
@@ -173,6 +201,11 @@ SERVICE_REPRESENTATIVE_KEYWORDS = [
 
 FILTERED_COUNT = 0
 WARNINGS = []
+
+TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+META_RE = re.compile(r"<meta\b[^>]*>", re.IGNORECASE | re.DOTALL)
+ATTR_RE = re.compile(r"""([:\w-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)""", re.IGNORECASE)
+SPACE_RE = re.compile(r"\s+")
 
 
 def warn(message):
@@ -237,6 +270,209 @@ def should_skip(url, title):
         FILTERED_COUNT += 1
         return True
     return False
+
+
+def cache_dirs_from_env():
+    configured = os.environ.get("VIBE_SITES_CACHE_DIRS", "").strip()
+    if not configured:
+        return []
+    return [Path(piece).expanduser() for piece in configured.split(os.pathsep) if piece.strip()]
+
+
+def cache_dirs():
+    seen = set()
+    dirs = []
+    for path in cache_dirs_from_env() or CACHE_DIRS:
+        resolved = str(path)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if path.exists() and path.is_dir():
+            dirs.append(path)
+    return dirs
+
+
+def cache_files(paths):
+    files = []
+    for root in paths:
+        try:
+            candidates = root.rglob("*")
+            for path in candidates:
+                if len(files) >= MAX_CACHE_FILES:
+                    return files
+                if not path.is_file():
+                    continue
+                try:
+                    size = path.stat().st_size
+                except OSError:
+                    continue
+                if 0 < size <= MAX_CACHE_FILE_BYTES:
+                    files.append(path)
+        except PermissionError:
+            warn(f"cache directory is not readable: {root}")
+        except OSError as exc:
+            warn(f"cache directory could not be scanned: {root}: {exc}")
+    return files
+
+
+def decode_cache_bytes(data):
+    text = data.decode("utf-8", "ignore")
+    if not text.strip():
+        text = data.decode("latin-1", "ignore")
+    return text
+
+
+def clean_cached_title(value):
+    text = html.unescape(SPACE_RE.sub(" ", value or "")).strip()
+    if len(text) > 90:
+        text = text[:87].rstrip() + "..."
+    return text
+
+
+def clean_cached_description(value):
+    text = html.unescape(SPACE_RE.sub(" ", value or "")).strip()
+    if len(text) < 24:
+        return ""
+    if any(piece in text.lower() for piece in SENSITIVE_TEXT):
+        return ""
+    if len(text) > 180:
+        text = text[:177].rstrip() + "..."
+    return text
+
+
+def html_attrs(tag):
+    attrs = {}
+    for name, value in ATTR_RE.findall(tag):
+        attrs[name.lower()] = value.strip("\"'")
+    return attrs
+
+
+def cached_title(text):
+    match = TITLE_RE.search(text)
+    if not match:
+        return ""
+    title = clean_cached_title(match.group(1))
+    if not title or any(piece in title.lower() for piece in BAD_TITLES):
+        return ""
+    return title
+
+
+def cached_description(text):
+    candidates = []
+    for tag in META_RE.findall(text):
+        attrs = html_attrs(tag)
+        name = (attrs.get("name") or attrs.get("property") or "").lower()
+        if name not in {"description", "og:description", "twitter:description"}:
+            continue
+        description = clean_cached_description(attrs.get("content", ""))
+        if description:
+            candidates.append(description)
+    if not candidates:
+        return ""
+    return max(candidates, key=len)
+
+
+def cache_category_signals(text):
+    lowered = text.lower()
+    matches = []
+    best_category = ""
+    best_count = 0
+    for category, needles in CATEGORY_RULES:
+        hit_needles = sorted({needle for needle in needles if needle.lower() in lowered})
+        if not hit_needles:
+            continue
+        matches.extend(hit_needles[:3])
+        if len(hit_needles) > best_count:
+            best_category = category
+            best_count = len(hit_needles)
+    return best_category, sorted(set(matches))[:5]
+
+
+def build_cache_index(items):
+    roots = cache_dirs()
+    if not roots:
+        return {}, 0
+
+    targets = {}
+    for item in items:
+        url = item.get("url", "")
+        host = host_of(url)
+        if not url or not host:
+            continue
+        parts = urlsplit(url)
+        path_key = f"{host}{parts.path}".lower() if parts.path and parts.path != "/" else host
+        targets.setdefault(host, {})[url] = {url.lower(), path_key}
+
+    index = {}
+    inspected = 0
+    for path in cache_files(roots):
+        try:
+            data = path.read_bytes()
+        except PermissionError:
+            warn(f"cache file is not readable: {path}")
+            continue
+        except OSError:
+            continue
+        text = decode_cache_bytes(data)
+        lowered = text.lower()
+        if not lowered:
+            continue
+        inspected += 1
+        for host, urls in targets.items():
+            if host not in lowered:
+                continue
+            title = cached_title(text)
+            description = cached_description(text)
+            cache_category, signals = cache_category_signals(text)
+            if not title and not description and not cache_category and not signals:
+                continue
+            for url, markers in urls.items():
+                if any(marker and marker in lowered for marker in markers):
+                    entry = index.setdefault(url, {"title": "", "description": "", "category": "", "signals": set()})
+                    if title and len(title) > len(entry["title"]):
+                        entry["title"] = title
+                    if description and len(description) > len(entry["description"]):
+                        entry["description"] = description
+                    if cache_category:
+                        entry["category"] = cache_category
+                    entry["signals"].update(signals)
+    return index, inspected
+
+
+def title_is_generic(item):
+    title = (item.get("title") or "").strip().lower()
+    host = host_of(item.get("url", "")).lower()
+    return not title or title in {host, "untitled", "new tab"} or len(title) < 8
+
+
+def apply_cache_index(items, cache_index):
+    changed = 0
+    for item in items:
+        entry = cache_index.get(item.get("url", ""))
+        if not entry:
+            continue
+        if entry.get("title") and (title_is_generic(item) or len(entry["title"]) > len(item.get("title", ""))):
+            item["title"] = entry["title"]
+        if entry.get("category"):
+            item["cache_category"] = entry["category"]
+        signals = sorted(entry.get("signals", []))
+        if entry.get("description"):
+            item["description"] = entry["description"]
+        elif signals:
+            item["cache_signals"] = signals
+            item["description"] = f"缓存页面命中：{'、'.join(signals[:4])}。"
+        changed += 1
+    return changed
+
+
+def apply_favicon_index(items, favicon_index):
+    by_host = {}
+    for url, icon in favicon_index.items():
+        by_host.setdefault(host_of(url), icon)
+    for item in items:
+        icon = favicon_index.get(item.get("url", "")) or by_host.get(host_of(item.get("url", "")))
+        if icon:
+            item["icon"] = icon
 
 
 def copy_database(path, tmpdir, label):
@@ -406,6 +642,44 @@ def read_chrome_bookmarks(browser):
     return items
 
 
+def image_data_uri(data):
+    if not data:
+        return ""
+    return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+
+
+def read_chrome_favicons(browser, tmpdir):
+    db = copy_database(browser.get("favicons", Path()), tmpdir, f"{browser['name'].replace(' ', '_')}_Favicons")
+    if not db:
+        return {}
+    try:
+        con = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
+        con.row_factory = sqlite3.Row
+        rows = con.execute(
+            """
+            select icon_mapping.page_url, favicon_bitmaps.image_data, favicon_bitmaps.width, favicon_bitmaps.height
+            from icon_mapping
+            join favicon_bitmaps on favicon_bitmaps.icon_id = icon_mapping.icon_id
+            where favicon_bitmaps.image_data is not null
+            order by icon_mapping.page_url, favicon_bitmaps.width desc, favicon_bitmaps.height desc
+            """
+        ).fetchall()
+        con.close()
+    except sqlite3.DatabaseError as exc:
+        warn(f"{browser['name']} favicons could not be read: {exc}")
+        return {}
+
+    icons = {}
+    for row in rows:
+        url = normalize_url(row["page_url"])
+        if not url or url in icons:
+            continue
+        icon = image_data_uri(row["image_data"])
+        if icon:
+            icons[url] = icon
+    return icons
+
+
 def walk_safari_bookmark_node(node, folder="", out=None):
     out = out if out is not None else []
     node_type = node.get("WebBookmarkType")
@@ -469,10 +743,45 @@ def representative_rank(item):
     return rank
 
 
+def item_entry(item):
+    parts = urlsplit(item.get("url", ""))
+    path = parts.path or "/"
+    if parts.query:
+        path = f"{path}?{parts.query}"
+    if len(path) > 34:
+        path = path[:31].rstrip() + "..."
+    return {
+        "title": display_name(item),
+        "url": item.get("url", ""),
+        "path": path,
+        "visit_count": item.get("visit_count", 0),
+        "last_visit": item.get("last_visit", ""),
+        "_score": score(item),
+    }
+
+
+def ensure_entries(item):
+    if "_entries" not in item:
+        item["_entries"] = [item_entry(item)]
+    return item["_entries"]
+
+
+def merge_entries(target, source):
+    entries = {entry["url"]: entry for entry in ensure_entries(target)}
+    for entry in ensure_entries(source):
+        current = entries.get(entry["url"])
+        if not current or entry["_score"] > current.get("_score", 0):
+            entries[entry["url"]] = entry
+    target["_entries"] = sorted(entries.values(), key=lambda entry: entry.get("_score", 0), reverse=True)
+
+
 def absorb_item(target, source, update_title=False):
+    merge_entries(target, source)
     target["visit_count"] += source.get("visit_count", 0)
     target["typed_count"] += source.get("typed_count", 0)
     target["bookmarked"] = target.get("bookmarked") or source.get("bookmarked")
+    if source.get("icon") and not target.get("icon"):
+        target["icon"] = source["icon"]
     if source.get("bookmark_folder") and not target.get("bookmark_folder"):
         target["bookmark_folder"] = source["bookmark_folder"]
     target["sources"] = sorted(set(target["sources"]) | set(source["sources"]))
@@ -485,6 +794,7 @@ def absorb_item(target, source, update_title=False):
 def merge_items(items):
     merged = {}
     for item in items:
+        ensure_entries(item)
         key = merge_key(item)
         item["_representative_rank"] = representative_rank(item)
         current = merged.get(key)
@@ -500,12 +810,28 @@ def merge_items(items):
     return list(merged.values())
 
 
-def category_for(item):
+def rule_category_for(item):
     text = f"{item['url']} {item['title']}".lower()
+    for category, needles in STRONG_CATEGORY_RULES:
+        if any(needle in text for needle in needles):
+            return category
     for category, needles in CATEGORY_RULES:
         if any(needle in text for needle in needles):
             return category
     return "其他网站"
+
+
+def category_for(item):
+    category = rule_category_for(item)
+    cache_category = item.get("cache_category")
+    if not cache_category:
+        return category
+    if cache_category == "本地开发" and category != "本地开发":
+        return category
+    protected_categories = {"本地开发", "AI 助手", "代码 / 仓库", "社区 / 资讯", "邮箱 / 协作", "生活 / 出行", "金融 / 政务"}
+    if category in protected_categories:
+        return category
+    return cache_category
 
 
 def describe(item):
@@ -513,7 +839,7 @@ def describe(item):
     if item.get("bookmarked") and item.get("bookmark_folder"):
         return f"书签：{item['bookmark_folder']}。"
     if category == "本地开发":
-        return "本机开发服务，按端口和访问频率保留。"
+        return "本地开发服务。"
     if category == "AI 平台 / API":
         return "模型服务、API 控制台或智能体平台。"
     if category == "服务后台 / 账单":
@@ -532,7 +858,7 @@ def describe(item):
 
 
 def score(item):
-    return item["visit_count"] * 3 + item["typed_count"] * 6 + (18 if item["bookmarked"] else 0) + len(item["sources"]) * 4
+    return item.get("visit_count", 0) * 3 + item.get("typed_count", 0) * 6 + (18 if item.get("bookmarked") else 0) + len(item.get("sources", [])) * 4
 
 
 def display_name(item):
@@ -543,36 +869,58 @@ def display_name(item):
 
 
 def compact_item(item):
+    url = item["url"]
+    links = [
+        {key: entry[key] for key in ("title", "url", "path", "visit_count", "last_visit")}
+        for entry in ensure_entries(item)
+        if entry.get("url") and entry.get("url") != url
+    ][:3]
     return {
         "title": display_name(item),
-        "url": item["url"],
-        "host": host_of(item["url"]),
+        "url": url,
+        "host": host_of(url),
         "description": item.get("description") or describe(item),
+        "icon": item.get("icon", ""),
         "visit_count": item.get("visit_count", 0),
         "bookmarked": item.get("bookmarked", False),
         "sources": item.get("sources", []),
         "category": item.get("category", "其他网站"),
         "last_visit": item.get("last_visit", ""),
+        "links": links,
     }
+
+
+def average_visit_count(group):
+    items = group.get("items", [])
+    if not items:
+        return 0
+    return sum(item.get("visit_count", 0) for item in items) / len(items)
+
+
+def group_sort_key(group):
+    items = group.get("items", [])
+    best_item_score = max((score(item) for item in items), default=0)
+    return (-average_visit_count(group), -best_item_score, -len(items), group["name"])
 
 
 def build_groups(items):
     grouped = defaultdict(list)
     for item in sorted(items, key=score, reverse=True):
         item["category"] = category_for(item)
-        item["description"] = describe(item)
+        item["description"] = item.get("description") or describe(item)
         grouped[item["category"]].append(item)
 
+    high_frequency_items = [item for item in sorted(items, key=score, reverse=True) if item.get("category") != "本地开发"]
     groups = [
         {
             "name": "高频网站",
-            "items": [compact_item(item) for item in sorted(items, key=score, reverse=True)[:24]],
+            "items": [compact_item(item) for item in high_frequency_items[:18]],
         }
     ]
     for category, raw_items in sorted(grouped.items(), key=lambda pair: (-len(pair[1]), pair[0])):
         limit = 24 if category in {"本地开发", "服务后台 / 账单"} else 18 if category in {"产品 / 项目后台", "AI 平台 / API", "代码 / 仓库"} else 12
         groups.append({"name": category, "items": [compact_item(item) for item in sorted(raw_items, key=score, reverse=True)[:limit]]})
-    return groups
+    return sorted(groups, key=group_sort_key)
 
 
 def build_html(groups, stats):
@@ -586,45 +934,55 @@ def build_html(groups, stats):
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>常用网址导航</title>
   <style>
-    :root {{ --bg:#f7f8f5; --panel:#fff; --ink:#171814; --muted:#687064; --line:#d9dfd4; --soft:#eef1ea; --accent:#176c5f; --gold:#a27621; --shadow:0 14px 38px rgba(37,45,35,.10); }}
+    :root {{ --bg:#f6f7f3; --panel:#fff; --ink:#171814; --muted:#687064; --line:#d9dfd4; --soft:#eef1ea; --accent:#176c5f; --gold:#946714; --shadow:0 8px 24px rgba(37,45,35,.08); }}
     * {{ box-sizing:border-box; }}
+    html,body {{ overflow-x:hidden; }}
     body {{ margin:0; font-family:Avenir Next,Hiragino Sans GB,PingFang SC,Helvetica Neue,sans-serif; background:var(--bg); color:var(--ink); }}
-    .shell {{ max-width:1320px; margin:0 auto; padding:28px 22px 52px; }}
-    header {{ display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:22px; margin-bottom:18px; }}
-    .hero,.summary,.sidebar,.card {{ background:rgba(255,255,255,.92); border:1px solid var(--line); box-shadow:var(--shadow); }}
-    .hero {{ padding:28px; }}
-    .eyebrow {{ color:var(--accent); font-size:13px; font-weight:800; margin-bottom:10px; }}
-    h1 {{ font-family:Georgia,Songti SC,serif; font-size:clamp(34px,5vw,62px); line-height:1; margin:0; letter-spacing:0; }}
-    .sub {{ color:var(--muted); max-width:760px; line-height:1.7; margin:14px 0 0; }}
-    .summary {{ display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); overflow:hidden; }}
-    .stat {{ background:#fbfcf9; padding:18px; }}
-    .stat b {{ display:block; font-size:27px; line-height:1; margin-bottom:6px; }}
+    .shell {{ max-width:1320px; margin:0 auto; padding:20px 20px 42px; }}
+    header {{ display:grid; grid-template-columns:minmax(0,1fr) 328px; gap:14px; margin-bottom:14px; }}
+    .hero,.summary,.sidebar,.card {{ min-width:0; background:rgba(255,255,255,.94); border:1px solid var(--line); box-shadow:var(--shadow); }}
+    .hero {{ padding:20px 22px; }}
+    .eyebrow {{ color:var(--accent); font-size:12px; font-weight:800; margin-bottom:7px; }}
+    h1 {{ font-family:Georgia,Songti SC,serif; font-size:clamp(30px,4vw,48px); line-height:1.04; margin:0; letter-spacing:0; }}
+    .sub {{ color:var(--muted); max-width:760px; line-height:1.6; margin:10px 0 0; font-size:14px; overflow-wrap:anywhere; }}
+    .summary {{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); overflow:hidden; }}
+    .stat {{ background:#fbfcf9; padding:14px; }}
+    .stat b {{ display:block; font-size:24px; line-height:1; margin-bottom:5px; }}
     .stat span {{ color:var(--muted); font-size:12px; }}
-    .layout {{ display:grid; grid-template-columns:276px minmax(0,1fr); gap:18px; align-items:start; }}
-    .sidebar {{ position:sticky; top:18px; display:grid; gap:14px; padding:14px; max-height:calc(100vh - 36px); overflow:auto; }}
+    .layout {{ display:grid; grid-template-columns:260px minmax(0,1fr); gap:16px; align-items:start; }}
+    .sidebar {{ position:sticky; top:16px; display:grid; gap:12px; padding:12px; max-height:calc(100vh - 32px); overflow:auto; }}
     .sidebarTitle {{ color:var(--muted); font-size:12px; font-weight:800; letter-spacing:.08em; }}
-    input {{ width:100%; height:46px; border:1px solid var(--line); background:#fff; color:var(--ink); padding:0 16px; font:inherit; outline:none; }}
+    input {{ width:100%; height:42px; border:1px solid var(--line); background:#fff; color:var(--ink); padding:0 13px; font:inherit; outline:none; }}
     input:focus {{ border-color:var(--accent); }}
-    .tabs {{ display:grid; gap:7px; }}
-    .tab {{ display:flex; justify-content:space-between; gap:10px; border:1px solid var(--line); background:#fff; color:var(--muted); padding:9px 11px; text-align:left; font:inherit; cursor:pointer; min-height:38px; }}
+    .tabs {{ display:grid; gap:6px; }}
+    .tab {{ display:flex; justify-content:space-between; gap:10px; border:1px solid var(--line); background:#fff; color:var(--muted); padding:8px 10px; text-align:left; font:inherit; cursor:pointer; min-height:36px; }}
+    .tab span {{ min-width:0; }}
     .tab.active {{ background:var(--ink); border-color:var(--ink); color:white; }}
-    .category {{ margin-top:22px; scroll-margin-top:130px; }}
+    .category {{ margin-top:18px; scroll-margin-top:110px; }}
     .category h2 {{ display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin:0 0 12px; font-size:20px; }}
     .category h2 span {{ color:var(--muted); font-size:13px; font-weight:500; }}
-    .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(286px,1fr)); gap:13px; }}
-    .card {{ min-height:158px; display:grid; grid-template-rows:auto auto 1fr auto; gap:10px; padding:15px; color:inherit; text-decoration:none; transition:transform .16s ease,border-color .16s ease; }}
-    .card:hover {{ transform:translateY(-3px); border-color:var(--accent); }}
+    .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:10px; }}
+    .card {{ min-height:126px; display:grid; grid-template-rows:auto auto auto 1fr auto; gap:7px; padding:12px; color:inherit; transition:transform .14s ease,border-color .14s ease,box-shadow .14s ease; box-shadow:none; }}
+    .card:hover {{ transform:translateY(-2px); border-color:var(--accent); box-shadow:0 8px 20px rgba(23,108,95,.10); }}
     .cardTop {{ display:flex; justify-content:space-between; align-items:center; gap:12px; }}
-    .host {{ color:var(--accent); font-size:12px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
-    .heat {{ color:var(--gold); font-size:12px; font-weight:800; flex:0 0 auto; }}
-    .title {{ font-weight:750; line-height:1.35; overflow-wrap:anywhere; }}
-    .desc {{ color:var(--muted); line-height:1.5; font-size:13px; }}
-    .meta {{ display:flex; gap:7px; flex-wrap:wrap; align-self:end; }}
-    .tag {{ border:1px solid var(--line); padding:4px 7px; font-size:11px; color:var(--muted); background:var(--soft); }}
+    .identity {{ display:flex; align-items:center; min-width:0; gap:8px; }}
+    .siteIcon {{ width:22px; height:22px; flex:0 0 22px; display:grid; place-items:center; border:1px solid var(--line); background:var(--soft); color:var(--accent); font-size:11px; font-weight:800; overflow:hidden; }}
+    .siteIcon img {{ width:100%; height:100%; object-fit:cover; display:block; }}
+    .host {{ color:var(--accent); font-size:12px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }}
+    .heat {{ color:var(--gold); font-size:11px; font-weight:800; flex:0 0 auto; }}
+    .title {{ color:inherit; text-decoration:none; font-weight:750; line-height:1.32; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }}
+    .title:hover {{ color:var(--accent); }}
+    .desc {{ color:var(--muted); line-height:1.45; font-size:12px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }}
+    .quickLinks {{ display:flex; flex-wrap:wrap; gap:5px; min-height:0; }}
+    .quick {{ max-width:100%; color:var(--accent); text-decoration:none; border:1px solid rgba(23,108,95,.20); background:rgba(23,108,95,.06); padding:3px 6px; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+    .quick:hover {{ border-color:var(--accent); background:rgba(23,108,95,.11); }}
+    .meta {{ display:flex; gap:6px; flex-wrap:wrap; align-self:end; }}
+    .tag {{ border:1px solid var(--line); padding:3px 6px; font-size:10px; color:var(--muted); background:var(--soft); }}
     .tag.strong {{ background:rgba(23,108,95,.10); border-color:rgba(23,108,95,.24); color:var(--accent); }}
     .empty {{ display:none; border:1px dashed var(--line); background:rgba(255,255,255,.7); padding:40px; color:var(--muted); text-align:center; }}
     footer {{ margin-top:34px; color:var(--muted); font-size:12px; line-height:1.7; }}
-    @media (max-width:760px) {{ header,.layout {{ grid-template-columns:1fr; }} .sidebar {{ position:static; max-height:none; }} .tabs {{ grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); }} }}
+    @media (max-width:900px) {{ header,.layout {{ grid-template-columns:1fr; }} .summary {{ grid-template-columns:repeat(4,1fr); }} .sidebar {{ position:static; max-height:none; }} .tabs {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .tab {{ min-width:0; max-width:100%; }} .tab span:first-child {{ overflow:hidden; text-overflow:ellipsis; }} }}
+    @media (max-width:520px) {{ .shell {{ width:100%; max-width:100%; padding:14px; }} .hero {{ padding:16px; }} h1 {{ font-size:30px; }} .sub {{ font-size:13px; line-height:1.55; }} .summary {{ grid-template-columns:repeat(2,1fr); }} .grid {{ grid-template-columns:1fr; }} .tabs {{ grid-template-columns:1fr; }} .tab {{ width:100%; font-size:14px; }} }}
   </style>
 </head>
 <body>
@@ -659,6 +1017,13 @@ def build_html(groups, stats):
     let activeCategory = '';
     const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[ch]));
     const attr = value => esc(value).replace(/`/g, '&#96;');
+    const iconHtml = item => item.icon
+      ? `<span class="siteIcon"><img src="${{attr(item.icon)}}" alt=""></span>`
+      : `<span class="siteIcon">${{esc((item.host || '?').slice(0, 1).toUpperCase())}}</span>`;
+    const linkText = link => link.path && link.path !== '/' ? link.path : link.title;
+    const linksHtml = item => item.links && item.links.length
+      ? `<div class="quickLinks">${{item.links.map(link => `<a class="quick" href="${{attr(link.url)}}" target="_blank" rel="noreferrer" title="${{attr(link.title)}}">${{esc(linkText(link))}}</a>`).join('')}}</div>`
+      : '';
     statsEl.innerHTML = [
       ['网址', stats.total_items],
       ['来源', stats.sources],
@@ -682,12 +1047,13 @@ def build_html(groups, stats):
         if (!items.length) return '';
         visible += items.length;
         return `<section class="category"><h2>${{esc(group.name)}} <span>${{items.length}} 个</span></h2><div class="grid">${{items.map(item => `
-          <a class="card" href="${{attr(item.url)}}" target="_blank" rel="noreferrer">
-            <div class="cardTop"><div class="host">${{esc(item.host)}}</div><div class="heat">${{item.visit_count ? esc(item.visit_count) + ' 次' : '书签'}}</div></div>
-            <div class="title">${{esc(item.title)}}</div>
+          <article class="card">
+            <div class="cardTop"><div class="identity">${{iconHtml(item)}}<div class="host">${{esc(item.host)}}</div></div><div class="heat">${{item.visit_count ? esc(item.visit_count) + ' 次' : '书签'}}</div></div>
+            <a class="title" href="${{attr(item.url)}}" target="_blank" rel="noreferrer">${{esc(item.title)}}</a>
+            ${{linksHtml(item)}}
             <div class="desc">${{esc(item.description)}}</div>
             <div class="meta">${{item.bookmarked ? '<span class="tag strong">书签</span>' : ''}}<span class="tag">${{esc(item.sources.join(' / '))}}</span></div>
-          </a>`).join('')}}</div></section>`;
+          </article>`).join('')}}</div></section>`;
       }}).join('');
       empty.style.display = visible ? 'none' : 'block';
       renderTabs();
@@ -735,16 +1101,26 @@ def build_bookmarks_html(groups):
     return "\n".join(lines) + "\n"
 
 
-def build(limit):
+def build(limit, inspect_cache=False):
     global FILTERED_COUNT
     FILTERED_COUNT = 0
     all_items = []
+    favicon_index = {}
     with tempfile.TemporaryDirectory(prefix="vibe-sites-") as tmpdir:
         for browser in BROWSERS:
             all_items.extend(read_chrome_history(browser, tmpdir, limit))
             all_items.extend(read_chrome_bookmarks(browser))
+            favicon_index.update(read_chrome_favicons(browser, tmpdir))
         all_items.extend(read_safari_history(tmpdir, limit))
         all_items.extend(read_safari_bookmarks())
+
+    apply_favicon_index(all_items, favicon_index)
+
+    cache_stats = {"enabled": inspect_cache, "files": 0, "matched_items": 0}
+    if inspect_cache:
+        cache_index, inspected_files = build_cache_index(all_items)
+        matched_items = apply_cache_index(all_items, cache_index)
+        cache_stats = {"enabled": True, "files": inspected_files, "matched_items": matched_items}
 
     merged = sorted(merge_items(all_items), key=score, reverse=True)
     groups = build_groups(merged)
@@ -752,6 +1128,7 @@ def build(limit):
         "total_items": sum(len(group["items"]) for group in groups),
         "sources": len({source for group in groups for item in group["items"] for source in item["sources"]}),
         "filtered_items": FILTERED_COUNT,
+        "cache": cache_stats,
         "warnings": WARNINGS,
     }
     dashboard = {"stats": stats, "groups": groups}
@@ -763,6 +1140,8 @@ def build(limit):
     print(f"ok    built sites: {HTML_FILE}")
     print(f"ok    bookmarks: {BOOKMARKS_FILE}")
     print(f"ok    data: {DATA_FILE}")
+    if inspect_cache:
+        print(f"ok    cache inspected: {cache_stats['files']} files, {cache_stats['matched_items']} matched")
     if not groups:
         warn("no browser history or bookmarks were found; the page was still generated")
     return HTML_FILE
@@ -797,6 +1176,7 @@ def parse_args(argv):
     parser.add_argument("--bookmarks", action="store_true", help="print the browser-importable bookmarks HTML path")
     parser.add_argument("--no-open", action="store_true", help="build or check without opening a browser")
     parser.add_argument("--print-path", action="store_true", help="print the generated HTML path")
+    parser.add_argument("--inspect-cache", action="store_true", help="opt in to local browser cache keyword inspection")
     parser.add_argument("--limit", type=int, default=1200, help="history rows to inspect per browser")
     return parser.parse_args(argv)
 
@@ -807,9 +1187,9 @@ def main(argv=None):
         print("fail  --limit must be positive", file=sys.stderr)
         return 1
 
-    needs_rebuild = args.rebuild or (args.bookmarks and not BOOKMARKS_FILE.exists()) or (not args.open and not args.bookmarks and not HTML_FILE.exists())
+    needs_rebuild = args.rebuild or args.inspect_cache or (args.bookmarks and not BOOKMARKS_FILE.exists()) or (not args.open and not args.bookmarks and not HTML_FILE.exists())
     if needs_rebuild:
-        path = build(args.limit)
+        path = build(args.limit, inspect_cache=args.inspect_cache)
     else:
         path = HTML_FILE
         if not path.exists():

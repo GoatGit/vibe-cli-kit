@@ -43,7 +43,7 @@ Usage:
   v update [--dry-run] [--no-sync]
   v session [code|backend|frontend|ai] [--name SESSION] [--reset]
   v project
-  v sites [--rebuild] [--open] [--bookmarks] [--no-open]
+  v sites [--rebuild] [--inspect-cache] [--open] [--bookmarks] [--no-open]
   v r --port PORT [--wait SECONDS] [--] [COMMAND...]
   v --help
 EOF
@@ -131,12 +131,14 @@ EOF
 sites_help() {
   cat <<'EOF'
 Usage:
-  v sites [--rebuild] [--open] [--bookmarks] [--no-open]
+  v sites [--rebuild] [--inspect-cache] [--open] [--bookmarks] [--no-open]
 
 Behavior:
   - opens the local browser-history start page
   - rebuilds it automatically when it does not exist
+  - groups repeated site paths as quick links and keeps local dev ports separate
   - --rebuild scans Chrome / Edge / Safari history and bookmarks again
+  - --inspect-cache also scans local browser cache text for classification signals
   - --bookmarks prints a browser-importable bookmarks HTML file path
   - Safari may require Full Disk Access for the terminal app
 

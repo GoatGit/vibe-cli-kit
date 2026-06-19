@@ -33,6 +33,7 @@ v diff --only tmux
 v update --dry-run --no-sync
 v project
 v sites --rebuild
+v sites --rebuild --inspect-cache
 v sites --bookmarks
 v sync --dry-run --only tmux
 v session code
@@ -150,6 +151,7 @@ v diff --only tmux           # compare tmux template and deployed config
 v update --dry-run --no-sync # preview package updates without config sync
 v project                    # detect project type and suggested commands
 v sites --rebuild            # build the local browser-history start page
+v sites --rebuild --inspect-cache # improve classification with local browser cache signals
 v sites --bookmarks          # print the browser-importable bookmarks file
 v sync --dry-run --only tmux # preview tmux config sync
 v session code               # open the code workspace
@@ -200,6 +202,8 @@ glow README.en.md            # read the README with glow
 - `v project`: detect the current project type and print suggested commands
 - `v sites`: open the local browser-history start page
 - `v sites --rebuild`: rescan Chrome / Edge / Safari history and bookmarks
+- `v sites` groups repeated site paths as quick links and keeps local dev ports out of the high-frequency group
+- `v sites --rebuild --inspect-cache`: opt in to local browser cache keyword inspection
 - `v sites --bookmarks`: print a browser-importable bookmarks HTML file
 - `v sync --dry-run --only tmux`: preview config sync
 - `v session code`: create or reuse a coding workspace
@@ -240,6 +244,7 @@ glow README.en.md            # read the README with glow
 - `v project`
 - `v sites`
 - `v sites --rebuild`
+- `v sites --rebuild --inspect-cache`
 - `v sites --bookmarks`
 - `v sync --dry-run --only tmux`
 - `v session code`

@@ -188,7 +188,7 @@ test_sites_command_is_wired() {
 
   assert_contains "$install_contents" 'cp "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites"' "install.sh deploys v-sites" &&
     assert_contains "$install_contents" 'cp "$TEMPLATE_DIR/bin/v-sites" "$TEMPLATE_STORE_DIR/bin/v-sites"' "install.sh stores v-sites template" &&
-    assert_contains "$driver_contents" "v sites [--rebuild] [--open] [--bookmarks] [--no-open]" "v usage lists sites" &&
+    assert_contains "$driver_contents" "v sites [--rebuild] [--inspect-cache] [--open] [--bookmarks] [--no-open]" "v usage lists sites" &&
     assert_contains "$driver_contents" 'check_file "script: v-sites" "$LOCAL_BIN_DIR/v-sites"' "doctor checks v-sites script" &&
     assert_contains "$driver_contents" 'run_diff_pair "bin.v-sites" "$TEMPLATE_DIR/bin/v-sites" "$LOCAL_BIN_DIR/v-sites"' "diff covers v-sites" &&
     assert_contains "$driver_contents" 'backup_copy_file bin.v-sites "$LOCAL_BIN_DIR/v-sites" "$root/bin/v-sites"' "backup covers v-sites" &&
@@ -232,7 +232,8 @@ test_sites_rebuilds_from_chrome_history() {
   home_dir="$workdir/home"
   config_dir="$home_dir/.config"
   history_dir="$home_dir/Library/Application Support/Google/Chrome/Default"
-  mkdir -p "$history_dir" "$config_dir"
+  cache_dir="$workdir/cache"
+  mkdir -p "$history_dir" "$config_dir" "$cache_dir"
 
   python3 - "$history_dir/History" <<'PY'
 import sqlite3
@@ -266,6 +267,33 @@ con.execute(
     "insert into urls values (?, ?, ?, ?, ?)",
     ("https://www.krill-ai.com/app/shop?tab=balance", "Krill AI", 5, 1, 13253810000000000),
 )
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("http://localhost:3000/dashboard", "Local Dev", 80, 1, 13253820000000000),
+)
+con.execute(
+    "insert into urls values (?, ?, ?, ?, ?)",
+    ("https://chatgpt.com/", "ChatGPT", 15, 1, 13253830000000000),
+)
+con.commit()
+con.close()
+PY
+
+  python3 - "$history_dir/Favicons" <<'PY'
+import base64
+import sqlite3
+import sys
+
+png = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+)
+con = sqlite3.connect(sys.argv[1])
+con.execute("create table favicons (id integer primary key, url text)")
+con.execute("create table favicon_bitmaps (id integer primary key, icon_id integer, image_data blob, width integer, height integer)")
+con.execute("create table icon_mapping (id integer primary key, page_url text, icon_id integer)")
+con.execute("insert into favicons values (?, ?)", (1, "https://example.com/favicon.ico"))
+con.execute("insert into favicon_bitmaps values (?, ?, ?, ?, ?)", (1, 1, png, 16, 16))
+con.execute("insert into icon_mapping values (?, ?, ?)", (1, "https://example.com/docs?utm_source=test", 1))
 con.commit()
 con.close()
 PY
@@ -295,6 +323,36 @@ PY
     return 1
   fi
 
+  category_order="$(
+    python3 - "$data_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    groups = json.load(f)
+
+print(" > ".join(group["name"] for group in groups))
+PY
+  )"
+  group_checks="$(
+    python3 - "$data_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    groups = json.load(f)
+
+by_name = {group["name"]: group for group in groups}
+high_hosts = {item["host"] for item in by_name["高频网站"]["items"]}
+local_hosts = {item["host"] for item in by_name["本地开发"]["items"]}
+krill = next(item for item in by_name["服务后台 / 账单"]["items"] if item["host"] == "krill-ai.com")
+
+print("high_has_local=" + str("localhost:3000" in high_hosts))
+print("local_has_port=" + str("localhost:3000" in local_hosts))
+print("krill_links=" + ",".join(link["url"] for link in krill.get("links", [])))
+PY
+  )"
+
   assert_contains "$output" "ok    built sites:" "sites rebuild output" &&
     assert_contains "$output" "ok    bookmarks:" "sites rebuild writes bookmarks" &&
     assert_contains "$html_contents" "常用网址导航" "sites html generated" &&
@@ -306,13 +364,60 @@ PY
     assert_contains "$data_contents" "https://krill-ai.com/app/shop?tab=balance" "sites prefers krill balance deep link" &&
     assert_contains "$data_contents" '"visit_count": 27' "sites merges krill host visits" &&
     assert_contains "$data_contents" "example.com" "sites data includes history host" &&
+    assert_contains "$data_contents" "data:image/png;base64" "sites data includes favicon data uri" &&
+    assert_contains "$data_contents" '"links": [' "sites data includes aggregated site links" &&
+    assert_contains "$group_checks" "high_has_local=False" "sites high frequency excludes local ports" &&
+    assert_contains "$group_checks" "local_has_port=True" "sites keeps local ports in local development group" &&
+    assert_contains "$group_checks" "krill_links=https://krill-ai.com/app" "sites keeps sibling krill entry as quick link" &&
+    assert_contains "$html_contents" "siteIcon" "sites html renders favicon container" &&
+    assert_contains "$html_contents" "quickLinks" "sites html renders quick links" &&
     assert_contains "$data_contents" '"visit_count": 50' "sites merges same host visits" &&
     assert_not_contains "$data_contents" "utm_source" "sites data strips tracking params" &&
     assert_not_contains "$data_contents" "promoCode" "sites data strips promo params" &&
     assert_contains "$bookmarks_contents" '<!DOCTYPE NETSCAPE-Bookmark-file-1>' "sites bookmarks use importable format" &&
     assert_contains "$bookmarks_contents" "服务后台 / 账单" "sites bookmarks preserve service billing folder" &&
     assert_contains "$bookmarks_contents" "https://krill-ai.com/app/shop?tab=balance" "sites bookmarks include krill balance link" &&
-    assert_contains "$bookmarks_output" "bookmarks.html" "v sites --bookmarks prints bookmarks path"
+    assert_contains "$bookmarks_output" "bookmarks.html" "v sites --bookmarks prints bookmarks path" &&
+    assert_contains "$category_order" "本地开发" "sites categories include local development" &&
+    assert_contains "$category_order" "高频网站" "sites categories include high frequency group" &&
+    assert_contains "$category_order" "服务后台 / 账单" "sites categories include service billing group" ||
+    return 1
+
+  printf '%s\n' '<html><head><title>Example Billing Console</title><meta name="description" content="Manage Example billing, wallet balance, invoices, and usage from one console."></head><body>https://example.com/docs wallet balance invoice usage cache-only-secret</body></html>' >"$cache_dir/cache-entry"
+  printf '%s\n' '<html><head><title>ChatGPT local callback cache</title></head><body>https://chatgpt.com/ 127.0.0.1 localhost payment callback</body></html>' >"$cache_dir/chatgpt-entry"
+  cache_output="$(
+    HOME="$home_dir" \
+    XDG_CONFIG_HOME="$config_dir" \
+    VIBE_SITES_CACHE_DIRS="$cache_dir" \
+    PATH="$REPO_ROOT/templates/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+    sh "$REPO_ROOT/templates/bin/v" sites --rebuild --no-open --inspect-cache
+  )"
+  cache_data_contents="$(cat "$data_file")"
+  cache_group_checks="$(
+    python3 - "$data_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    groups = json.load(f)
+
+by_name = {group["name"]: group for group in groups}
+local_hosts = {item["host"] for item in by_name.get("本地开发", {}).get("items", [])}
+ai_hosts = {item["host"] for item in by_name.get("AI 助手", {}).get("items", [])}
+
+print("local_has_chatgpt=" + str("chatgpt.com" in local_hosts))
+print("ai_has_chatgpt=" + str("chatgpt.com" in ai_hosts))
+PY
+  )"
+
+    assert_contains "$cache_output" "ok    cache inspected:" "sites reports cache inspection" &&
+    assert_contains "$cache_data_contents" '"title": "Example Billing Console"' "sites improves title from cache" &&
+    assert_contains "$cache_data_contents" '"category": "服务后台 / 账单"' "sites cache signals improve category" &&
+    assert_contains "$cache_group_checks" "local_has_chatgpt=False" "sites cache local callback does not reclassify remote sites as local" &&
+    assert_contains "$cache_group_checks" "ai_has_chatgpt=True" "sites keeps chatgpt in AI assistant category" &&
+    assert_contains "$cache_data_contents" "Manage Example billing, wallet balance, invoices, and usage from one console." "sites improves description from cache meta" &&
+    assert_not_contains "$cache_data_contents" "cache-only-secret" "sites does not persist cache body" ||
+    return 1
 }
 
 test_install_prefers_configured_brew_on_macos() {

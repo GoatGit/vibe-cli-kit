@@ -33,6 +33,7 @@ v diff --only tmux
 v update --dry-run --no-sync
 v project
 v sites --rebuild
+v sites --rebuild --inspect-cache
 v sites --bookmarks
 v r 3000
 v r 3000 pnpm dev
@@ -154,6 +155,7 @@ v diff --only tmux           # 比较 tmux 模板和当前配置
 v update --dry-run --no-sync # 预览工具升级，不同步配置
 v project                    # 识别当前项目类型和建议命令
 v sites --rebuild            # 生成本地常用网址导航
+v sites --rebuild --inspect-cache # 使用本地浏览器缓存信号增强分类
 v sites --bookmarks          # 输出可导入浏览器的书签文件
 v r 3000                    # 自动识别项目启动命令并重启
 v r 3000 pnpm dev           # 显式指定启动命令并重启
@@ -206,6 +208,8 @@ glow README.zh-CN.md         # 用 glow 阅读 README
 - `v project`：识别当前项目类型并输出建议命令
 - `v sites`：打开本地常用网址导航
 - `v sites --rebuild`：重新扫描 Chrome / Edge / Safari 历史和书签
+- `v sites` 会把同一网站的常用路径聚合成快捷入口，并把本地开发端口从高频网站中分离
+- `v sites --rebuild --inspect-cache`：显式读取本地浏览器缓存文本信号，用于增强分类和标题
 - `v sites --bookmarks`：输出可导入浏览器的书签 HTML 文件
 - `v r 3000`：先清理占用端口的旧进程，再自动按当前项目启动
 - `v r 3000 pnpm dev`：先清理占用端口的旧进程，再启动指定命令
@@ -248,6 +252,7 @@ glow README.zh-CN.md         # 用 glow 阅读 README
 - `v project`
 - `v sites`
 - `v sites --rebuild`
+- `v sites --rebuild --inspect-cache`
 - `v sites --bookmarks`
 - `v r 3000`
 - `v r 3000 pnpm dev`

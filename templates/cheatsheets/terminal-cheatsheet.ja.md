@@ -32,6 +32,7 @@
 - `v update --dry-run --no-sync`：ツール更新だけをプレビュー
 - `v project`：現在のプロジェクト種別と推奨コマンドを表示
 - `v sites --rebuild`：Chrome / Edge / Safari の履歴とブックマークを再スキャン
+- `v sites --rebuild --inspect-cache`：ローカルブラウザキャッシュの信号で分類を改善
 - `v sites --bookmarks`：ブラウザにインポートできる bookmarks ファイルを表示
 - `v r 3000`：ポートを解放して検出した起動コマンドを実行
 - `v session code|backend|frontend|ai`：workspace を作成または再利用

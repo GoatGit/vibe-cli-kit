@@ -32,6 +32,7 @@
 - `v update --dry-run --no-sync`：只预览工具升级
 - `v project`：识别项目类型并给出建议命令
 - `v sites --rebuild`：重新扫描 Chrome / Edge / Safari 历史和书签
+- `v sites --rebuild --inspect-cache`：读取本地浏览器缓存信号增强分类
 - `v sites --bookmarks`：输出可导入浏览器的书签文件
 - `v r 3000`：释放端口并自动执行当前项目的启动命令
 - `v session code|backend|frontend|ai`：创建或复用工作区
